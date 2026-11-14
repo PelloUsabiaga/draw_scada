@@ -36,7 +36,7 @@
 				{tag: 'process.temperature', units: '', precision: '1'}),
 			createWidget('indicator', 'Status', 130, 50,
 				'rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;',
-				{tag: 'process.running'}),
+				{tag: 'process.running', onColor: '#85ee80', offColor: '#f09898'}),
 			createWidget('valueEditor', 'Setpoint', 150, 50,
 				'rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;',
 				{tag: 'process.temperature', units: '', precision: '1'})

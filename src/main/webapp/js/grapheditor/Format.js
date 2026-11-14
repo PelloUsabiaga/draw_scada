@@ -2282,11 +2282,16 @@ ScadaWidgetFormatPanel.prototype.init = function()
 	}
 	else if (this.type == 'indicator')
 	{
-		fields = [{key: 'label', label: 'Indicator label'}, {key: 'tag', label: 'Boolean variable/tag'}];
+		fields = [
+			{key: 'label', label: 'Indicator label'}, 
+			{key: 'tag', label: 'Boolean variable/tag'},
+			{key: 'onColor', label: 'On Color'},
+			{key: 'offColor', label: 'Off Color'}
+		];
 	}
 	else
 	{
-		fields = [{key: 'label', label: (this.type == 'valueEditor') ? 'Value label' : 'Display caption'},
+		fields = [{key: 'label', label: (this.type == 'valueEditor') ? 'Accessible label' : 'Display caption'},
 			{key: 'tag', label: 'Variable/tag'},
 			{key: 'units', label: 'Units'}, {key: 'precision', label: 'Decimal places', type: 'number'}];
 	}

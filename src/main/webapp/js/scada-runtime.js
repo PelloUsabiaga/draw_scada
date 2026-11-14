@@ -87,9 +87,9 @@
 
 			var interval = Number(config.pollIntervalMs);
 
-			if (!isFinite(interval) || interval < 250 || interval > 60000)
+			if (!isFinite(interval) || interval < 100 || interval > 60000)
 			{
-				throw new Error('Poll interval must be between 250 and 60000 ms');
+				throw new Error('Poll interval must be between 100 and 60000 ms');
 			}
 
 			var graph = viewer.graph;
@@ -102,6 +102,7 @@
 			{
 				var cell = cells[i];
 				var type = graph.getAttributeForCell(cell, 'scadaType', null);
+				
 
 				if (type == 'button' || type == 'display' || type == 'indicator' ||
 					type == 'valueEditor')
@@ -114,10 +115,21 @@
 					}
 
 					tags[tag] = true;
-					widgets.push({cell: cell, type: type, tag: tag,
+
+					newWidget = {cell: cell, type: type, tag: tag,
 						label: graph.getAttributeForCell(cell, 'label', ''),
 						units: graph.getAttributeForCell(cell, 'units', ''),
-						precision: graph.getAttributeForCell(cell, 'precision', '1')});
+						precision: graph.getAttributeForCell(cell, 'precision', '1')};
+
+					if (type == 'indicator')
+					{
+						var onColor = graph.getAttributeForCell(cell, 'onColor', '#d5e8d4');
+						var offColor = graph.getAttributeForCell(cell, 'offColor', '#f5f5f5');
+						newWidget.onColor = onColor;
+						newWidget.offColor = offColor;
+					}
+
+					widgets.push(newWidget);
 				}
 			}
 
@@ -166,9 +178,21 @@
 					displayValue = displayValue.toFixed(precision);
 				}
 
+				var valueText = (displayValue == null) ? '-' : String(displayValue);
+
+				if (widget.type == 'valueEditor')
+				{
+					if (widget.input != null && !widget.editing)
+					{
+						widget.input.value = valueText;
+					}
+
+					return;
+				}
+
 				graph.cellLabelChanged(widget.cell,
 					(widget.label ? widget.label + ': ' : '') +
-					((displayValue == null) ? '—' : String(displayValue)) +
+					(valueText) +
 					(widget.units ? ' ' + widget.units : ''), false);
 			};
 
@@ -192,8 +216,8 @@
 				widget.indicatorInitialized = true;
 				widget.indicatorValue = value;
 				var stateLabel = (value === true) ? 'ON' : (value === false) ? 'OFF' : '—';
-				var fillColor = (value === true) ? '#d5e8d4' :
-					(value === false) ? '#f5f5f5' : '#fff2cc';
+				var fillColor = (value === true) ? widget.onColor :
+    				(value === false) ? widget.offColor : '#fff2cc';
 				graph.setCellStyles(mxConstants.STYLE_FILLCOLOR, fillColor, [widget.cell]);
 				graph.cellLabelChanged(widget.cell,
 					(widget.label ? widget.label + ': ' : '') + stateLabel, false);
@@ -212,10 +236,12 @@
 						if (state != null && state.shape != null && state.shape.node != null)
 						{
 							var node = state.shape.node;
+							var labelNode = (state.text != null && state.text.node != null) ?
+								state.text.node : null;
 
 							if (node.getAttribute('data-scada-button') != 'true')
 							{
-								(function(widget)
+								(function(widget, node, labelNode)
 								{
 									var originalFilter = node.style.filter;
 									var pointerId = null;
@@ -284,13 +310,36 @@
 											evt.stopPropagation();
 										}
 									};
-									node.addEventListener('pointerdown', press);
+
+									var bindPointerTarget = function(target, preventSelection)
+									{
+										target.style.cursor = 'pointer';
+										target.style.userSelect = 'none';
+										target.style.webkitUserSelect = 'none';
+										target.addEventListener('pointerdown', function(evt)
+										{
+											if (preventSelection && evt.button == 0)
+											{
+												evt.preventDefault();
+											}
+
+											press(evt);
+										});
+										target.addEventListener('click', activate);
+									};
+
 									document.addEventListener('pointerup', release, true);
 									document.addEventListener('pointercancel', release, true);
-									node.addEventListener('click', activate);
+									bindPointerTarget(node, false);
+
+									if (labelNode != null)
+									{
+										bindPointerTarget(labelNode, true);
+									}
+
 									node.addEventListener('keydown', activate);
 									node.addEventListener('keyup', releaseKey);
-								})(widgets[i]);
+								})(widgets[i], node, labelNode);
 							}
 						}
 						else
@@ -332,7 +381,7 @@
 
 							if (node.getAttribute('data-scada-value-editor') != 'true')
 							{
-								(function(widget)
+								(function(widget, node, labelNode)
 								{
 									var bounds = node.getBBox();
 									var foreignObject = document.createElementNS(
@@ -341,23 +390,24 @@
 									foreignObject.setAttribute('y', bounds.y);
 									foreignObject.setAttribute('width', bounds.width);
 									foreignObject.setAttribute('height', bounds.height);
-									foreignObject.style.display = 'none';
+									foreignObject.style.display = 'block';
 
 									var input = document.createElementNS(
 										'http://www.w3.org/1999/xhtml', 'input');
 									input.type = 'text';
-									input.setAttribute('aria-label', 'Edit ' + (widget.label || widget.tag));
+									input.setAttribute('aria-label', widget.label || widget.tag);
 									input.style.cssText = 'box-sizing:border-box;width:100%;height:100%;' +
 										'padding:2px 6px;border:1px solid #6c8ebf;border-radius:3px;' +
 										'background:#fff;color:#222;font:14px sans-serif;text-align:center;';
 									foreignObject.appendChild(input);
 									node.appendChild(foreignObject);
+									widget.input = input;
+									input.value = (widget.value == null) ? '' : String(widget.value);
 									var initialValue = '';
 
 									var closeEditor = function()
 									{
 										widget.editing = false;
-										foreignObject.style.display = 'none';
 									};
 
 									var commitEdit = function()
@@ -398,24 +448,6 @@
 										}
 									};
 
-									var startEdit = function(evt)
-									{
-										if (widget.editing)
-										{
-											evt.stopPropagation();
-											return;
-										}
-
-										evt.preventDefault();
-										evt.stopPropagation();
-										widget.editing = true;
-										initialValue = (widget.value == null) ? '' : String(widget.value);
-										input.value = initialValue;
-										foreignObject.style.display = 'block';
-										input.focus();
-										input.select();
-									};
-
 									input.addEventListener('pointerdown', function(evt)
 									{
 										evt.stopPropagation();
@@ -423,6 +455,11 @@
 									input.addEventListener('click', function(evt)
 									{
 										evt.stopPropagation();
+									});
+									input.addEventListener('focus', function()
+									{
+										initialValue = input.value;
+										widget.editing = true;
 									});
 									input.addEventListener('keydown', function(evt)
 									{
@@ -445,23 +482,18 @@
 									});
 									input.addEventListener('blur', commitEdit);
 									node.style.cursor = 'text';
-									node.setAttribute('role', 'button');
-									node.setAttribute('tabindex', '0');
-									node.setAttribute('aria-label', 'Edit ' + (widget.label || widget.tag));
 									node.setAttribute('data-scada-value-editor', 'true');
 									node.addEventListener('pointerdown', function(evt)
 									{
 										evt.stopPropagation();
 									});
-									node.addEventListener('click', startEdit);
-									node.addEventListener('keydown', function(evt)
+
+									if (labelNode != null)
 									{
-										if (evt.key == 'Enter' || evt.key == ' ')
-										{
-											startEdit(evt);
-										}
-									});
-								})(widgets[i]);
+										labelNode.style.visibility = 'hidden';
+									}
+								})(widgets[i], node,
+									(state.text != null && state.text.node != null) ? state.text.node : null);
 							}
 						}
 						else

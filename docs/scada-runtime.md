@@ -5,8 +5,9 @@ button, a variable display, a boolean indicator, and an editable value field.
 Select a widget and use the **SCADA** format tab to configure its label, tag,
 write value, display units, or precision. The indicator shows `ON`/green for
 `true`, `OFF`/gray for `false`, and an unknown state for non-boolean values.
-The value editor commits its value on Enter or when focus leaves the field;
-Escape cancels the edit.
+The value editor is shown as an always-visible text input; its diagram label is
+hidden and is used as the input's accessible label. It commits its value on
+Enter or when focus leaves the field; Escape cancels the edit.
 The **Diagram** format tab has a **SCADA Connection** section for file-level
 settings.
 
@@ -19,7 +20,8 @@ The first runtime uses JSON over HTTP:
 
 Runtime buttons darken while the pointer is held down or while Enter/Space is
 held on the focused button. Releasing or cancelling the press restores the
-normal appearance; activation still sends the configured write.
+normal appearance; clicking the button label also activates it without
+selecting the text. Activation sends the configured write.
 
 The diagram stores connection settings in the `scada` attribute on its
 `<mxfile>` element. `externalConfigUrl` may point to a JSON file served beside
