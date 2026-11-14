@@ -2307,8 +2307,8 @@ ScadaWidgetFormatPanel.prototype.init = function()
 		fields = [
 			{key: 'label', label: 'Boolean LED label'},
 			{key: 'tag', label: 'Boolean variable/tag'},
-			{key: 'onColor', label: 'ON color'},
-			{key: 'offColor', label: 'OFF color'}
+			{key: 'onColor', label: 'ON color', type: 'color', defaultColor: '#d5e8d4'},
+			{key: 'offColor', label: 'OFF color', type: 'color', defaultColor: '#f5f5f5'}
 		];
 	}
 	else if (this.type == 'booleanSwitch')
@@ -2316,8 +2316,8 @@ ScadaWidgetFormatPanel.prototype.init = function()
 		fields = [
 			{key: 'ariaLabel', label: 'Accessible label'},
 			{key: 'tag', label: 'Boolean variable/tag'},
-			{key: 'onColor', label: 'ON color'},
-			{key: 'offColor', label: 'OFF color'}
+			{key: 'onColor', label: 'ON color', type: 'color', defaultColor: '#d5e8d4'},
+			{key: 'offColor', label: 'OFF color', type: 'color', defaultColor: '#f5f5f5'}
 		];
 	}
 	else if (this.type == 'barGauge')
@@ -2365,6 +2365,27 @@ ScadaWidgetFormatPanel.prototype.init = function()
 	for (var i = 0; i < fields.length; i++)
 	{
 		var field = fields[i];
+
+		if (field.type == 'color')
+		{
+			var colorOption = (function(panel, field)
+			{
+				return panel.createColorOption(field.label, function()
+				{
+					var color = graph.getAttributeForCell(panel.cell, field.key, null);
+
+					return (color != null && color.length > 0) ? color : field.defaultColor;
+				}, function(color)
+				{
+					graph.setAttributeForCell(panel.cell, field.key, color);
+				}, field.defaultColor, null, null, true, field.defaultColor);
+			})(this, field);
+
+			colorOption.style.margin = '8px 0';
+			this.container.appendChild(colorOption);
+			continue;
+		}
+
 		var row = document.createElement('div');
 		row.style.margin = '8px 0';
 		var label = document.createElement('label');
