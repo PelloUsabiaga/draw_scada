@@ -15,7 +15,8 @@ previously shown at the top of the screen is no longer used.
 Input value is an always-visible text field; its label is used for
 accessibility. It commits its value on Enter or when focus leaves the field;
 Escape cancels the edit.
-Select value displays a native dropdown inside the diagram. Configure its
+Select value is a composed rounded selector with a current-value label and a
+down arrow. Clicking anywhere on it opens the native dropdown. Configure its
 options as a JSON array of unique scalar values with display labels, for example:
 
 ```json
@@ -30,6 +31,8 @@ options as a JSON array of unique scalar values with display labels, for example
 Changing the selection immediately writes that typed JSON value to the bound
 tag. The dropdown reflects the value returned by polling; malformed option JSON
 is reported in the runtime log.
+Input value uses a gray rounded outer container and an inset white editable
+field. The default Button is gray with a more rounded shape.
 Switch is a composed, rounded track with a separately editable knob. It writes
 the opposite boolean value immediately when toggled; its ON and OFF track colors
 are configurable. The switch stays disabled until polling returns a boolean for

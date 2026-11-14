@@ -295,6 +295,64 @@
 					{
 						newWidget.options = parseSelectOptions(
 							graph.getAttributeForCell(cell, 'options', '[]'), tag);
+						var selectTextCell = null;
+						var selectArrowCell = null;
+
+						for (var childIndex = 0; childIndex < model.getChildCount(cell); childIndex++)
+						{
+							var child = model.getChildAt(cell, childIndex);
+							var part = graph.getAttributeForCell(child, 'scadaSelectPart', null);
+
+							if (part == 'text')
+							{
+								if (selectTextCell != null)
+								{
+									throw new Error('Select value "' + tag + '" has more than one text element');
+								}
+
+								selectTextCell = child;
+							}
+							else if (part == 'arrow')
+							{
+								if (selectArrowCell != null)
+								{
+									throw new Error('Select value "' + tag + '" has more than one dropdown arrow');
+								}
+
+								selectArrowCell = child;
+							}
+						}
+
+						if ((selectTextCell == null) != (selectArrowCell == null))
+						{
+							throw new Error('Select value "' + tag +
+								'" must contain both its text element and dropdown arrow');
+						}
+
+						newWidget.selectTextCell = selectTextCell;
+						newWidget.selectArrowCell = selectArrowCell;
+					}
+
+					if (type == 'inputValue')
+					{
+						var inputFieldCell = null;
+
+						for (var childIndex = 0; childIndex < model.getChildCount(cell); childIndex++)
+						{
+							var child = model.getChildAt(cell, childIndex);
+
+							if (graph.getAttributeForCell(child, 'scadaInputPart', null) == 'field')
+							{
+								if (inputFieldCell != null)
+								{
+									throw new Error('Input value "' + tag + '" has more than one editable field');
+								}
+
+								inputFieldCell = child;
+							}
+						}
+
+						newWidget.inputFieldCell = inputFieldCell;
 					}
 
 					if (type == 'barGauge')
@@ -541,18 +599,45 @@
 					return;
 				}
 
-				var selectedValue = '';
+				var selectedIndex = -1;
 
 				for (var i = 0; i < widget.options.length; i++)
 				{
 					if (widget.options[i].value === value)
 					{
-						selectedValue = String(i);
+						selectedIndex = i;
 						break;
 					}
 				}
 
-				widget.select.value = selectedValue;
+				widget.select.value = (selectedIndex >= 0) ? String(selectedIndex) : '';
+
+				if (widget.selectTextCell != null)
+				{
+					var displayLabel = (selectedIndex >= 0) ?
+						widget.options[selectedIndex].label : 'Select...';
+
+					if (widget.displayedOption != displayLabel)
+					{
+						graph.cellLabelChanged(widget.selectTextCell, displayLabel, false);
+						widget.displayedOption = displayLabel;
+					}
+
+					var textState = graph.view.getState(widget.selectTextCell);
+
+					if (textState != null)
+					{
+						if (textState.shape != null && textState.shape.node != null)
+						{
+							textState.shape.node.style.pointerEvents = 'none';
+						}
+
+						if (textState.text != null && textState.text.node != null)
+						{
+							textState.text.node.style.pointerEvents = 'none';
+						}
+					}
+				}
 			};
 
 			var renderValue = function(widget, value)
@@ -1144,16 +1229,24 @@
 					if (widgets[i].type == 'inputValue')
 					{
 						var state = graph.view.getState(widgets[i].cell);
+						var fieldState = (widgets[i].inputFieldCell != null) ?
+							graph.view.getState(widgets[i].inputFieldCell) : null;
 
-						if (state != null && state.shape != null && state.shape.node != null)
+						if (state != null && state.shape != null && state.shape.node != null &&
+							(widgets[i].inputFieldCell == null ||
+								(fieldState != null && fieldState.shape != null &&
+									fieldState.shape.node != null)))
 						{
 							var node = state.shape.node;
+							var fieldNode = (fieldState != null && fieldState.shape != null) ?
+								fieldState.shape.node : null;
 
 							if (node.getAttribute('data-scada-input-value') != 'true')
 							{
-								(function(widget, node, labelNode)
+								(function(widget, node, labelNode, fieldNode, fieldLabelNode)
 								{
-									var bounds = node.getBBox();
+									var overlayNode = (fieldNode != null) ? fieldNode : node;
+									var bounds = overlayNode.getBBox();
 									var foreignObject = document.createElementNS(
 										'http://www.w3.org/2000/svg', 'foreignObject');
 									foreignObject.setAttribute('x', bounds.x);
@@ -1167,10 +1260,10 @@
 									input.type = 'text';
 									input.setAttribute('aria-label', widget.label || widget.tag);
 									input.style.cssText = 'box-sizing:border-box;width:100%;height:100%;' +
-										'padding:2px 6px;border:1px solid #6c8ebf;border-radius:3px;' +
+										'padding:2px 6px;border:1px solid #b3b3b3;border-radius:10px;' +
 										'background:#fff;color:#222;font:14px sans-serif;text-align:center;';
 									foreignObject.appendChild(input);
-									node.appendChild(foreignObject);
+									overlayNode.appendChild(foreignObject);
 									widget.input = input;
 									input.value = (widget.value == null) ? '' : String(widget.value);
 									var initialValue = '';
@@ -1252,6 +1345,7 @@
 									});
 									input.addEventListener('blur', commitEdit);
 									node.style.cursor = 'text';
+									overlayNode.style.cursor = 'text';
 									node.setAttribute('data-scada-input-value', 'true');
 									node.addEventListener('pointerdown', function(evt)
 									{
@@ -1262,8 +1356,17 @@
 									{
 										labelNode.style.visibility = 'hidden';
 									}
+
+									if (fieldLabelNode != null)
+									{
+										fieldLabelNode.style.visibility = 'hidden';
+									}
 								})(widgets[i], node,
-									(state.text != null && state.text.node != null) ? state.text.node : null);
+									(state.text != null && state.text.node != null) ?
+										state.text.node : null,
+									fieldNode,
+									(fieldState != null && fieldState.text != null &&
+										fieldState.text.node != null) ? fieldState.text.node : null);
 							}
 						}
 						else
@@ -1298,14 +1401,24 @@
 					if (widgets[i].type == 'selectValue')
 					{
 						var state = graph.view.getState(widgets[i].cell);
+						var textState = (widgets[i].selectTextCell != null) ?
+							graph.view.getState(widgets[i].selectTextCell) : null;
+						var arrowState = (widgets[i].selectArrowCell != null) ?
+							graph.view.getState(widgets[i].selectArrowCell) : null;
 
-						if (state != null && state.shape != null && state.shape.node != null)
+						if (state != null && state.shape != null && state.shape.node != null &&
+							(widgets[i].selectTextCell == null ||
+								(textState != null && textState.shape != null &&
+									textState.shape.node != null && arrowState != null &&
+									arrowState.shape != null && arrowState.shape.node != null)))
 						{
 							var node = state.shape.node;
+							var arrowNode = (arrowState != null && arrowState.shape != null) ?
+								arrowState.shape.node : null;
 
 							if (node.getAttribute('data-scada-select-value') != 'true')
 							{
-								(function(widget, node, labelNode)
+								(function(widget, node, labelNode, arrowNode)
 								{
 									var bounds = node.getBBox();
 									var foreignObject = document.createElementNS(
@@ -1319,7 +1432,10 @@
 									var select = document.createElementNS(
 										'http://www.w3.org/1999/xhtml', 'select');
 									select.setAttribute('aria-label', widget.label || widget.tag);
-									select.style.cssText = 'box-sizing:border-box;width:100%;height:100%;' +
+									select.style.cssText = (widget.selectTextCell != null) ?
+										'box-sizing:border-box;width:100%;height:100%;' +
+										'padding:0;border:0;opacity:0;cursor:pointer;' :
+										'box-sizing:border-box;width:100%;height:100%;' +
 										'padding:2px 6px;border:1px solid #6c8ebf;border-radius:3px;' +
 										'background:#fff;color:#222;font:14px sans-serif;text-align:center;';
 
@@ -1393,6 +1509,11 @@
 									});
 									node.style.cursor = 'pointer';
 									node.setAttribute('data-scada-select-value', 'true');
+									if (arrowNode != null)
+									{
+										arrowNode.style.pointerEvents = 'none';
+									}
+
 									node.addEventListener('pointerdown', function(evt)
 									{
 										evt.stopPropagation();
@@ -1403,7 +1524,9 @@
 										labelNode.style.visibility = 'hidden';
 									}
 								})(widgets[i], node,
-									(state.text != null && state.text.node != null) ? state.text.node : null);
+									(state.text != null && state.text.node != null) ?
+										state.text.node : null,
+									arrowNode);
 							}
 						}
 						else

@@ -29,7 +29,8 @@
 		this.addPaletteFunctions('scadaWidgets', 'SCADA / Widgets', false,
 		[
 			createWidget('button', 'Button', 130, 50,
-				'rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;',
+				'rounded=1;arcSize=50;whiteSpace=wrap;html=1;' +
+				'fillColor=#d9d9d9;strokeColor=#666666;',
 				{tag: 'process.temperature', writeValue: '20'}),
 			createWidget('outputValue', 'Output value', 150, 55,
 				'rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;',
@@ -73,13 +74,69 @@
 
 				return this.createVertexTemplateFromCells([diagnostics], 280, 64, 'Diagnostics');
 			})),
-			createWidget('inputValue', 'Input value', 150, 50,
-				'rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;',
-				{tag: 'process.temperature', units: '', precision: '1'}),
-			createWidget('selectValue', 'Select value', 160, 50,
-				'rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;',
-				{tag: 'process.running',
-					options: '[{"label":"Off","value":false},{"label":"On","value":true}]'}),
+			this.addEntry('scada input value editable text', mxUtils.bind(this, function()
+			{
+				var xmlDoc = mxUtils.createXmlDocument();
+				var value = xmlDoc.createElement('object');
+				value.setAttribute('label', 'Input value');
+				value.setAttribute('scadaType', 'inputValue');
+				value.setAttribute('tag', 'process.temperature');
+				value.setAttribute('units', '');
+				value.setAttribute('precision', '1');
+
+				var input = new mxCell(value, new mxGeometry(0, 0, 170, 54),
+					'shape=rect;rounded=1;arcSize=20;container=1;collapsible=0;' +
+					'recursiveResize=1;fillColor=#d9d9d9;strokeColor=#666666;' +
+					'strokeWidth=1;html=1;whiteSpace=wrap;noLabel=1;');
+				input.vertex = true;
+
+				var fieldValue = xmlDoc.createElement('object');
+				fieldValue.setAttribute('label', '');
+				fieldValue.setAttribute('scadaInputPart', 'field');
+				var field = new mxCell(fieldValue, new mxGeometry(8, 8, 154, 38),
+					'shape=rect;rounded=1;arcSize=12;fillColor=#ffffff;' +
+					'strokeColor=#b3b3b3;strokeWidth=1;html=1;whiteSpace=wrap;noLabel=1;');
+				field.vertex = true;
+				input.insert(field);
+
+				return this.createVertexTemplateFromCells([input], 170, 54, 'Input value');
+			})),
+			this.addEntry('scada select value dropdown', mxUtils.bind(this, function()
+			{
+				var xmlDoc = mxUtils.createXmlDocument();
+				var value = xmlDoc.createElement('object');
+				value.setAttribute('label', 'Select value');
+				value.setAttribute('scadaType', 'selectValue');
+				value.setAttribute('tag', 'process.running');
+				value.setAttribute('options',
+					'[{"label":"Off","value":false},{"label":"On","value":true}]');
+
+				var select = new mxCell(value, new mxGeometry(0, 0, 180, 48),
+					'shape=rect;rounded=1;arcSize=12;container=1;collapsible=0;' +
+					'recursiveResize=1;fillColor=#f5f5f5;strokeColor=#6c8ebf;' +
+					'strokeWidth=1;html=1;whiteSpace=wrap;noLabel=1;');
+				select.vertex = true;
+
+				var textValue = xmlDoc.createElement('object');
+				textValue.setAttribute('label', 'Select...');
+				textValue.setAttribute('scadaSelectPart', 'text');
+				var text = new mxCell(textValue, new mxGeometry(10, 4, 140, 40),
+					'shape=rect;fillColor=none;strokeColor=none;html=0;pointerEvents=0;' +
+					'whiteSpace=wrap;align=left;verticalAlign=middle;fontColor=#222222;');
+				text.vertex = true;
+				select.insert(text);
+
+				var arrowValue = xmlDoc.createElement('object');
+				arrowValue.setAttribute('label', '');
+				arrowValue.setAttribute('scadaSelectPart', 'arrow');
+				var arrow = new mxCell(arrowValue, new mxGeometry(158, 20, 10, 6),
+					'shape=triangle;direction=south;fillColor=#666666;strokeColor=none;' +
+					'noLabel=1;pointerEvents=0;');
+				arrow.vertex = true;
+				select.insert(arrow);
+
+				return this.createVertexTemplateFromCells([select], 180, 48, 'Select value');
+			})),
 			this.addEntry('scada boolean switch', mxUtils.bind(this, function()
 			{
 				var xmlDoc = mxUtils.createXmlDocument();
