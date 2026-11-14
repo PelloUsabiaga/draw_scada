@@ -453,7 +453,8 @@ Format.prototype.immediateRefresh = function()
 		var scadaType = (scadaValue != null && typeof scadaValue == 'object') ?
 			scadaValue.getAttribute('scadaType') : null;
 
-		if (scadaType == 'button' || scadaType == 'display')
+		if (scadaType == 'button' || scadaType == 'display' ||
+			scadaType == 'indicator' || scadaType == 'valueEditor')
 		{
 			var scadaLabel = label.cloneNode(false);
 			var scadaTitle = document.createElement('div');
@@ -2272,11 +2273,23 @@ mxUtils.extend(ScadaWidgetFormatPanel, BaseFormatPanel);
 ScadaWidgetFormatPanel.prototype.init = function()
 {
 	var graph = this.editorUi.editor.graph;
-	var fields = (this.type == 'button') ?
-		[{key: 'label', label: 'Button label'}, {key: 'tag', label: 'Variable/tag'},
-			{key: 'writeValue', label: 'Value to write (JSON)'}] :
-		[{key: 'label', label: 'Display caption'}, {key: 'tag', label: 'Variable/tag'},
+	var fields;
+
+	if (this.type == 'button')
+	{
+		fields = [{key: 'label', label: 'Button label'}, {key: 'tag', label: 'Variable/tag'},
+			{key: 'writeValue', label: 'Value to write (JSON)'}];
+	}
+	else if (this.type == 'indicator')
+	{
+		fields = [{key: 'label', label: 'Indicator label'}, {key: 'tag', label: 'Boolean variable/tag'}];
+	}
+	else
+	{
+		fields = [{key: 'label', label: (this.type == 'valueEditor') ? 'Value label' : 'Display caption'},
+			{key: 'tag', label: 'Variable/tag'},
 			{key: 'units', label: 'Units'}, {key: 'precision', label: 'Decimal places', type: 'number'}];
+	}
 
 	this.container.appendChild(this.createTitle('SCADA Widget'));
 

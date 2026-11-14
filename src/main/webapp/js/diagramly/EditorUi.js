@@ -3641,7 +3641,7 @@
 
 	EditorUi.scadaConfigDefaults = {
 		enabled: true,
-		endpointUrl: 'http://localhost:8765',
+		endpointUrl: 'http://127.0.0.1:8765',
 		readPath: '/api/read',
 		writePath: '/api/write',
 		pollIntervalMs: 1000,

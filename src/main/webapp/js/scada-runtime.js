@@ -2,7 +2,7 @@
 {
 	var defaults = {
 		enabled: true,
-		endpointUrl: 'http://localhost:8765',
+		endpointUrl: 'http://127.0.0.1:8765',
 		readPath: '/api/read',
 		writePath: '/api/write',
 		pollIntervalMs: 1000,
@@ -103,7 +103,8 @@
 				var cell = cells[i];
 				var type = graph.getAttributeForCell(cell, 'scadaType', null);
 
-				if (type == 'button' || type == 'display')
+				if (type == 'button' || type == 'display' || type == 'indicator' ||
+					type == 'valueEditor')
 				{
 					var tag = graph.getAttributeForCell(cell, 'tag', '');
 
@@ -125,20 +126,20 @@
 				return new URL(path, endpoint.href.replace(/\/?$/, '/'));
 			};
 
-			var writeValue = async function(widget)
+			var parseValue = function(raw)
 			{
-				var raw = graph.getAttributeForCell(widget.cell, 'writeValue', 'true');
-				var value = raw;
-
 				try
 				{
-					value = JSON.parse(raw);
+					return JSON.parse(raw);
 				}
 				catch (e)
 				{
-					// Non-JSON input is treated as a string value.
+					return raw;
 				}
+			};
 
+			var writeTag = async function(widget, value)
+			{
 				var url = apiUrl(config.writePath);
 				await requestJson(url, {
 					method: 'POST',
@@ -146,6 +147,56 @@
 					body: JSON.stringify({tag: widget.tag, value: value})
 				});
 				updateStatus('Connected · wrote ' + widget.tag, false);
+			};
+
+			var writeValue = function(widget)
+			{
+				var raw = graph.getAttributeForCell(widget.cell, 'writeValue', 'true');
+				return writeTag(widget, parseValue(raw));
+			};
+
+			var renderValue = function(widget, value)
+			{
+				var displayValue = value;
+				var precision = Number(widget.precision);
+
+				if (typeof displayValue == 'number' && isFinite(precision) &&
+					precision >= 0 && precision <= 12)
+				{
+					displayValue = displayValue.toFixed(precision);
+				}
+
+				graph.cellLabelChanged(widget.cell,
+					(widget.label ? widget.label + ': ' : '') +
+					((displayValue == null) ? '—' : String(displayValue)) +
+					(widget.units ? ' ' + widget.units : ''), false);
+			};
+
+			var updateValue = function(widget, value)
+			{
+				widget.value = value;
+
+				if (widget.type != 'valueEditor' || !widget.editing)
+				{
+					renderValue(widget, value);
+				}
+			};
+
+			var updateIndicator = function(widget, value)
+			{
+				if (widget.indicatorInitialized && widget.indicatorValue === value)
+				{
+					return;
+				}
+
+				widget.indicatorInitialized = true;
+				widget.indicatorValue = value;
+				var stateLabel = (value === true) ? 'ON' : (value === false) ? 'OFF' : '—';
+				var fillColor = (value === true) ? '#d5e8d4' :
+					(value === false) ? '#f5f5f5' : '#fff2cc';
+				graph.setCellStyles(mxConstants.STYLE_FILLCOLOR, fillColor, [widget.cell]);
+				graph.cellLabelChanged(widget.cell,
+					(widget.label ? widget.label + ': ' : '') + stateLabel, false);
 			};
 
 			var bindButtonHandlers = function(attempt)
@@ -265,9 +316,181 @@
 				}
 			};
 
+			var bindValueEditorHandlers = function(attempt)
+			{
+				var pending = false;
+
+				for (var i = 0; i < widgets.length; i++)
+				{
+					if (widgets[i].type == 'valueEditor')
+					{
+						var state = graph.view.getState(widgets[i].cell);
+
+						if (state != null && state.shape != null && state.shape.node != null)
+						{
+							var node = state.shape.node;
+
+							if (node.getAttribute('data-scada-value-editor') != 'true')
+							{
+								(function(widget)
+								{
+									var bounds = node.getBBox();
+									var foreignObject = document.createElementNS(
+										'http://www.w3.org/2000/svg', 'foreignObject');
+									foreignObject.setAttribute('x', bounds.x);
+									foreignObject.setAttribute('y', bounds.y);
+									foreignObject.setAttribute('width', bounds.width);
+									foreignObject.setAttribute('height', bounds.height);
+									foreignObject.style.display = 'none';
+
+									var input = document.createElementNS(
+										'http://www.w3.org/1999/xhtml', 'input');
+									input.type = 'text';
+									input.setAttribute('aria-label', 'Edit ' + (widget.label || widget.tag));
+									input.style.cssText = 'box-sizing:border-box;width:100%;height:100%;' +
+										'padding:2px 6px;border:1px solid #6c8ebf;border-radius:3px;' +
+										'background:#fff;color:#222;font:14px sans-serif;text-align:center;';
+									foreignObject.appendChild(input);
+									node.appendChild(foreignObject);
+									var initialValue = '';
+
+									var closeEditor = function()
+									{
+										widget.editing = false;
+										foreignObject.style.display = 'none';
+									};
+
+									var commitEdit = function()
+									{
+										if (!widget.editing)
+										{
+											return;
+										}
+
+										var raw = input.value;
+										closeEditor();
+										input.blur();
+
+										if (raw == initialValue)
+										{
+											renderValue(widget, widget.value);
+											return;
+										}
+
+										var value = parseValue(raw);
+										writeTag(widget, value).then(function()
+										{
+											updateValue(widget, value);
+										}).catch(function(error)
+										{
+											console.error(error);
+											updateStatus(error.message, true);
+										});
+									};
+
+									var cancelEdit = function()
+									{
+										if (widget.editing)
+										{
+											closeEditor();
+											input.blur();
+											renderValue(widget, widget.value);
+										}
+									};
+
+									var startEdit = function(evt)
+									{
+										if (widget.editing)
+										{
+											evt.stopPropagation();
+											return;
+										}
+
+										evt.preventDefault();
+										evt.stopPropagation();
+										widget.editing = true;
+										initialValue = (widget.value == null) ? '' : String(widget.value);
+										input.value = initialValue;
+										foreignObject.style.display = 'block';
+										input.focus();
+										input.select();
+									};
+
+									input.addEventListener('pointerdown', function(evt)
+									{
+										evt.stopPropagation();
+									});
+									input.addEventListener('click', function(evt)
+									{
+										evt.stopPropagation();
+									});
+									input.addEventListener('keydown', function(evt)
+									{
+										evt.stopPropagation();
+
+										if (evt.key == 'Enter' && !evt.isComposing)
+										{
+											evt.preventDefault();
+											commitEdit();
+										}
+										else if (evt.key == 'Escape')
+										{
+											evt.preventDefault();
+											cancelEdit();
+										}
+									});
+									input.addEventListener('keyup', function(evt)
+									{
+										evt.stopPropagation();
+									});
+									input.addEventListener('blur', commitEdit);
+									node.style.cursor = 'text';
+									node.setAttribute('role', 'button');
+									node.setAttribute('tabindex', '0');
+									node.setAttribute('aria-label', 'Edit ' + (widget.label || widget.tag));
+									node.setAttribute('data-scada-value-editor', 'true');
+									node.addEventListener('pointerdown', function(evt)
+									{
+										evt.stopPropagation();
+									});
+									node.addEventListener('click', startEdit);
+									node.addEventListener('keydown', function(evt)
+									{
+										if (evt.key == 'Enter' || evt.key == ' ')
+										{
+											startEdit(evt);
+										}
+									});
+								})(widgets[i]);
+							}
+						}
+						else
+						{
+							pending = true;
+						}
+					}
+				}
+
+				if (pending)
+				{
+					if (attempt < 40)
+					{
+						window.setTimeout(function()
+						{
+							bindValueEditorHandlers(attempt + 1);
+						}, 50);
+					}
+					else
+					{
+						updateStatus('Unable to initialize SCADA value editor controls', true);
+					}
+				}
+			};
+
 			window.setTimeout(function()
 			{
 				bindButtonHandlers(0);
+				bindValueEditorHandlers(0);
 			}, 0);
 
 			var tagList = Object.keys(tags);
@@ -295,20 +518,15 @@
 					{
 						var widget = widgets[i];
 
-						if (widget.type == 'display' && Object.prototype.hasOwnProperty.call(result.values, widget.tag))
+						if ((widget.type == 'display' || widget.type == 'valueEditor') &&
+							Object.prototype.hasOwnProperty.call(result.values, widget.tag))
 						{
-							var value = result.values[widget.tag];
-							var precision = Number(widget.precision);
-
-							if (typeof value == 'number' && isFinite(precision) && precision >= 0 && precision <= 12)
-							{
-								value = value.toFixed(precision);
-							}
-
-							graph.cellLabelChanged(widget.cell,
-								(widget.label ? widget.label + ': ' : '') +
-								((value == null) ? '—' : String(value)) +
-								(widget.units ? ' ' + widget.units : ''), false);
+							updateValue(widget, result.values[widget.tag]);
+						}
+						else if (widget.type == 'indicator' &&
+							Object.prototype.hasOwnProperty.call(result.values, widget.tag))
+						{
+							updateIndicator(widget, result.values[widget.tag]);
 						}
 					}
 
