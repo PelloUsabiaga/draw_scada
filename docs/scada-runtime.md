@@ -92,11 +92,78 @@ For a ready-to-unpack package, choose **File → Export as → Export HMI Runtim
 the `js/` directory. Extract the files while preserving that layout, then
 serve them over HTTP(S). The backend is not included.
 
-For a local demo, run `python3 scada_test_backend.py` from the repository root.
-It listens only on `127.0.0.1:8765`. The `process.temperature` value starts at
-20 and increases by 1 every second; the default SCADA button writes 20 to that
-tag, and the `process.running` boolean starts as `false`. This backend is for
-development only; it has no authentication,
+For a local demo, run:
+
+```sh
+python3 src/main/scada_backend/scada_backend.py
+```
+
+By default, the backend loads `src/main/scada_backend/config.json` and listens
+only on `127.0.0.1:8765`. Pass `--config path/to/config.json` to select another
+configuration. The configuration declares local variables, their types and
+defaults, metadata, plus optional value simulations:
+
+```json
+{
+  "server": {"host": "127.0.0.1", "port": 8765},
+  "data_connectors": [
+    {
+      "id": "local",
+      "type": "local",
+      "namespace_prefix": "process",
+      "variables": {
+        "temperature": {
+          "type": "float",
+          "default": 20,
+          "unit": "°C",
+          "description": "Process temperature"
+        },
+        "running": {"type": "boolean", "default": false}
+      }
+    }
+  ],
+  "simulations": [
+    {"tag": "process.temperature", "step": 1, "interval_seconds": 1}
+  ]
+}
+```
+
+Supported local types are `float`, `integer`, `boolean`, `string`, and `json`.
+Variable tags are formed from `namespace_prefix` plus the variable name.
+Writes are type-checked, and variables can be marked `"writable": false`.
+`GET /api/variables` returns each configured tag's type, current and default
+values, writable flag, connector ID, unit, and description. The existing
+`GET /api/read` and `POST /api/write` endpoints continue to serve HMI widgets.
+Query `http://127.0.0.1:8765/api/variables` to retrieve the inventory:
+
+```json
+{
+  "variables": [
+    {
+      "tag": "process.temperature",
+      "name": "temperature",
+      "connectorId": "local",
+      "type": "float",
+      "value": 20.0,
+      "default": 20.0,
+      "writable": true,
+      "unit": "°C",
+      "description": "Simulated process temperature"
+    }
+  ]
+}
+```
+
+Connector implementations follow a shared interface and registry; local
+variables are implemented now, while OPC UA and other protocols remain future
+connectors.
+
+Run the backend's tests from its directory with
+`python3 -m unittest discover -s tests -v`.
+
+The `process.temperature` value starts at 20 and increases by 1 every second;
+the default SCADA button writes 20 to that tag, and `process.running` starts as
+`false`. This backend is for development only; it has no authentication,
 authorization, or safety interlocks. Do not expose it to a network or use it to
 control equipment.
 

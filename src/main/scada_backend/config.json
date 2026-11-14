@@ -1,0 +1,44 @@
+{
+  "server": {
+    "host": "127.0.0.1",
+    "port": 8765
+  },
+  "data_connectors": [
+    {
+      "id": "local",
+      "type": "local",
+      "namespace_prefix": "process",
+      "variables": {
+        "temperature": {
+          "type": "float",
+          "default": 20,
+          "unit": "°C",
+          "description": "Simulated process temperature"
+        },
+        "running": {
+          "type": "boolean",
+          "default": false,
+          "description": "Process running state"
+        },
+        "temperature_setpoint": {
+          "type": "float",
+          "default": 25,
+          "unit": "°C",
+          "description": "Temperature setpoint"
+        },
+        "status": {
+          "type": "string",
+          "default": "idle",
+          "description": "Process status text"
+        }
+      }
+    }
+  ],
+  "simulations": [
+    {
+      "tag": "process.temperature",
+      "step": 1,
+      "interval_seconds": 1
+    }
+  ]
+}
