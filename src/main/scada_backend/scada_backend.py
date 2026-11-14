@@ -39,6 +39,7 @@ class LocalVariable:
     writable: bool
     unit: str
     description: str
+    precision: int | None
 
 
 def validate_value(value_type: str, value: Any, tag: str) -> Any:
@@ -131,10 +132,19 @@ class LocalConnector(DataConnector):
             writable = definition.get("writable", True)
             unit = definition.get("unit", "")
             description = definition.get("description", "")
+            precision = definition.get("precision")
             if not isinstance(writable, bool):
                 raise ConfigurationError(f'Variable "{tag}" writable must be a boolean')
             if not isinstance(unit, str) or not isinstance(description, str):
                 raise ConfigurationError(f'Variable "{tag}" unit and description must be strings')
+            if precision is not None and (
+                isinstance(precision, bool)
+                or not isinstance(precision, int)
+                or not 0 <= precision <= 15
+            ):
+                raise ConfigurationError(
+                    f'Variable "{tag}" precision must be an integer between 0 and 15'
+                )
 
             self.variables[tag] = LocalVariable(
                 tag=tag,
@@ -146,6 +156,7 @@ class LocalConnector(DataConnector):
                 writable=writable,
                 unit=unit,
                 description=description,
+                precision=precision,
             )
 
     def read(self, tag: str) -> Any:
@@ -187,6 +198,7 @@ class LocalConnector(DataConnector):
                     "writable": variable.writable,
                     "unit": variable.unit,
                     "description": variable.description,
+                    "precision": variable.precision,
                 }
                 for variable in self.variables.values()
             ]

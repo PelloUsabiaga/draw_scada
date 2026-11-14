@@ -31,6 +31,7 @@ class ScadaBackendTests(unittest.TestCase):
         self.assertEqual(variables["process.temperature"]["type"], "float")
         self.assertEqual(variables["process.temperature"]["default"], 20.0)
         self.assertEqual(variables["process.temperature"]["unit"], "°C")
+        self.assertEqual(variables["process.temperature"]["precision"], 1)
         self.assertFalse(variables["process.running"]["value"])
 
     def test_unknown_connector_type_is_reported(self) -> None:

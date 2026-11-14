@@ -13,6 +13,7 @@
           "type": "float",
           "default": 20,
           "unit": "°C",
+          "precision": 1,
           "description": "Simulated process temperature"
         },
         "running": {
@@ -24,6 +25,7 @@
           "type": "float",
           "default": 25,
           "unit": "°C",
+          "precision": 1,
           "description": "Temperature setpoint"
         },
         "status": {

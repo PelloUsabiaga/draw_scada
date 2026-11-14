@@ -2405,6 +2405,7 @@ ScadaWidgetFormatPanel.prototype.init = function()
 			{key: 'units', label: 'Units'}, {key: 'precision', label: 'Decimal places', type: 'number'}];
 	}
 
+	var fieldInputs = Object.create(null);
 	var title = (this.type == 'button') ? 'Button' :
 		(this.type == 'inputValue') ? 'Input value' :
 		(this.type == 'outputValue') ? 'Output value' :
@@ -2477,6 +2478,7 @@ ScadaWidgetFormatPanel.prototype.init = function()
 		input.value = fieldValue;
 		input.style.width = 'calc(100% - 10px)';
 		input.setAttribute('aria-label', field.label);
+		fieldInputs[field.key] = input;
 
 		if (field.type == 'textarea')
 		{
@@ -2503,9 +2505,351 @@ ScadaWidgetFormatPanel.prototype.init = function()
 		})(this, field, input);
 
 		row.appendChild(label);
-		row.appendChild(input);
+
+		if (field.key == 'tag')
+		{
+			var tagControls = document.createElement('div');
+			tagControls.style.display = 'flex';
+			tagControls.style.alignItems = 'center';
+			tagControls.style.gap = '4px';
+			tagControls.style.width = '100%';
+			input.style.width = 'auto';
+			input.style.flex = '1 1 auto';
+			input.style.minWidth = '0';
+			tagControls.appendChild(input);
+
+			var pickerButton = mxUtils.button('...', mxUtils.bind(this, function(evt)
+			{
+				this.openVariablePicker(fieldInputs);
+				mxEvent.consume(evt);
+			}));
+			pickerButton.className = 'geBtn';
+			pickerButton.setAttribute('aria-label', 'Select variable');
+			pickerButton.setAttribute('title', 'Select variable');
+			pickerButton.style.flex = '0 0 28px';
+			pickerButton.style.minWidth = '28px';
+			pickerButton.style.width = '28px';
+			pickerButton.style.height = '24px';
+			pickerButton.style.margin = '0';
+			pickerButton.style.padding = '0';
+			tagControls.appendChild(pickerButton);
+			row.appendChild(tagControls);
+		}
+		else
+		{
+			row.appendChild(input);
+		}
+
 		this.container.appendChild(row);
 	}
+};
+
+ScadaWidgetFormatPanel.prototype.openVariablePicker = function(fieldInputs)
+{
+	var editorUi = this.editorUi;
+	var content = document.createElement('div');
+	content.style.display = 'flex';
+	content.style.flexDirection = 'column';
+	content.style.minHeight = '0';
+
+	var title = document.createElement('h3');
+	mxUtils.write(title, 'Select SCADA variable');
+	content.appendChild(title);
+
+	var endpointLabel = document.createElement('div');
+	endpointLabel.className = 'geDialogHint';
+	content.appendChild(endpointLabel);
+
+	var search = document.createElement('input');
+	search.type = 'text';
+	search.className = 'geScadaVariableSearch';
+	search.setAttribute('aria-label', 'Search variables');
+	search.setAttribute('placeholder', 'Search variables...');
+	search.disabled = true;
+	content.appendChild(search);
+
+	var status = document.createElement('div');
+	status.className = 'geDialogHint';
+	status.style.margin = '8px 0';
+	content.appendChild(status);
+
+	var list = document.createElement('div');
+	list.className = 'geScadaVariableList';
+	list.setAttribute('role', 'listbox');
+	list.setAttribute('aria-label', 'Available SCADA variables');
+	content.appendChild(list);
+
+	var variables = [];
+	var selectedVariable = null;
+	var variableButtons = [];
+	var panel = this;
+	var dialog = new CustomDialog(editorUi, content, function()
+	{
+		if (selectedVariable == null)
+		{
+			return 'Select a variable';
+		}
+
+		var graph = editorUi.editor.graph;
+		var applyField = function(key, value)
+		{
+			var input = fieldInputs[key];
+
+			if (input != null)
+			{
+				input.value = String(value);
+				graph.setAttributeForCell(panel.cell, key, String(value));
+			}
+		};
+
+		applyField('tag', selectedVariable.tag);
+
+		if (typeof selectedVariable.unit == 'string' &&
+			selectedVariable.unit.trim().length > 0)
+		{
+			applyField('units', selectedVariable.unit);
+		}
+
+		if (typeof selectedVariable.precision == 'number' &&
+			isFinite(selectedVariable.precision) &&
+			Math.floor(selectedVariable.precision) == selectedVariable.precision)
+		{
+			applyField('precision', selectedVariable.precision);
+		}
+	}, null, 'Select');
+
+	dialog.okButton.disabled = true;
+	editorUi.showDialog(dialog.container, 560, 520, true, true);
+
+	var updateStatus = function(message, isError)
+	{
+		status.textContent = message;
+		status.style.color = isError ? '#b00020' : '';
+	};
+
+	var selectVariable = function(variable, button)
+	{
+		selectedVariable = variable;
+
+		for (var i = 0; i < variableButtons.length; i++)
+		{
+			variableButtons[i].setAttribute('aria-selected',
+				String(variableButtons[i] == button));
+		}
+
+		dialog.okButton.disabled = false;
+	};
+
+	var applySelection = function()
+	{
+		if (selectedVariable != null)
+		{
+			dialog.okButton.click();
+		}
+	};
+
+	var renderVariables = function()
+	{
+		list.textContent = '';
+		variableButtons = [];
+		selectedVariable = null;
+		dialog.okButton.disabled = true;
+
+		var query = search.value.trim().toLowerCase();
+		var groups = Object.create(null);
+		var matchCount = 0;
+
+		for (var i = 0; i < variables.length; i++)
+		{
+			var variable = variables[i];
+			var searchable = (variable.tag + ' ' + (variable.type || '') + ' ' +
+				(variable.unit || '') + ' ' + (variable.description || '')).toLowerCase();
+
+			if (query.length == 0 || searchable.indexOf(query) >= 0)
+			{
+				matchCount++;
+				var separator = variable.tag.lastIndexOf('.');
+				var namespace = (separator >= 0) ?
+					variable.tag.substring(0, separator) : 'Other';
+				groups[namespace] = groups[namespace] || [];
+				groups[namespace].push(variable);
+			}
+		}
+
+		var namespaces = Object.keys(groups).sort();
+
+		if (namespaces.length == 0)
+		{
+			updateStatus(query.length == 0 ? 'No variables are available' :
+				'No variables match the search', false);
+			return;
+		}
+
+		updateStatus((query.length > 0) ? matchCount + ' matching variables' :
+			matchCount + ' variables available', false);
+
+		for (var i = 0; i < namespaces.length; i++)
+		{
+			var details = document.createElement('details');
+			details.className = 'geScadaVariableNamespace';
+			details.open = query.length > 0;
+
+			var summary = document.createElement('summary');
+			summary.textContent = namespaces[i];
+			details.appendChild(summary);
+
+			for (var j = 0; j < groups[namespaces[i]].length; j++)
+			{
+				(function(variable)
+				{
+					var button = document.createElement('button');
+					button.type = 'button';
+					button.className = 'geScadaVariableOption';
+					button.setAttribute('role', 'option');
+					button.setAttribute('aria-selected', 'false');
+
+					var name = document.createElement('span');
+					name.className = 'geScadaVariableName';
+					name.textContent = variable.tag;
+					button.appendChild(name);
+
+					var metadata = document.createElement('span');
+					metadata.className = 'geScadaVariableMetadata';
+					var detailsText = variable.type || 'unknown type';
+
+					if (typeof variable.unit == 'string' && variable.unit.length > 0)
+					{
+						detailsText += ' · ' + variable.unit;
+					}
+
+					if (variable.description)
+					{
+						detailsText += ' · ' + variable.description;
+					}
+
+					metadata.textContent = detailsText;
+					button.appendChild(metadata);
+					button.addEventListener('click', function()
+					{
+						selectVariable(variable, button);
+					});
+					button.addEventListener('dblclick', function(evt)
+					{
+						evt.preventDefault();
+						selectVariable(variable, button);
+						applySelection();
+					});
+					button.addEventListener('keydown', function(evt)
+					{
+						if (evt.key == 'Enter')
+						{
+							evt.preventDefault();
+							applySelection();
+						}
+					});
+
+					variableButtons.push(button);
+					details.appendChild(button);
+				})(groups[namespaces[i]][j]);
+			}
+
+			list.appendChild(details);
+		}
+	};
+
+	mxEvent.addListener(search, 'input', renderVariables);
+	mxEvent.addListener(search, 'keydown', function(evt)
+	{
+		if (evt.key == 'Enter')
+		{
+			evt.preventDefault();
+
+			if (selectedVariable != null)
+			{
+				applySelection();
+			}
+			else if (variableButtons.length > 0)
+			{
+				variableButtons[0].focus();
+			}
+		}
+	});
+
+	(async function()
+	{
+		try
+		{
+			var config = EditorUi.getScadaConfig(editorUi.fileNode);
+
+			if (config.externalConfigUrl)
+			{
+				var overrideUrl = new URL(config.externalConfigUrl, document.baseURI);
+				var overrideResponse = await fetch(overrideUrl);
+
+				if (!overrideResponse.ok)
+				{
+					throw new Error('External configuration request failed (' +
+						overrideResponse.status + ')');
+				}
+
+				var override = await overrideResponse.json();
+
+				if (override == null || typeof override != 'object' || Array.isArray(override))
+				{
+					throw new Error('External SCADA configuration must be a JSON object');
+				}
+
+				for (var key in override)
+				{
+					config[key] = override[key];
+				}
+			}
+
+			var endpoint = new URL(config.endpointUrl, document.baseURI);
+
+			if (endpoint.protocol != 'http:' && endpoint.protocol != 'https:')
+			{
+				throw new Error('Backend URL must use HTTP or HTTPS');
+			}
+
+			var variablesUrl = new URL('/api/variables', endpoint);
+			endpointLabel.textContent = variablesUrl.href;
+			var response = await fetch(variablesUrl);
+
+			if (!response.ok)
+			{
+				throw new Error('Variable request failed (' + response.status + ')');
+			}
+
+			var result = await response.json();
+
+			if (result == null || !Array.isArray(result.variables))
+			{
+				throw new Error('Backend response must contain a variables array');
+			}
+
+			for (var i = 0; i < result.variables.length; i++)
+			{
+				var variable = result.variables[i];
+
+				if (variable == null || typeof variable != 'object' ||
+					typeof variable.tag != 'string' || variable.tag.trim().length == 0)
+				{
+					throw new Error('Backend returned invalid variable metadata at index ' + i);
+				}
+			}
+
+			variables = result.variables;
+			search.disabled = false;
+			renderVariables();
+			search.focus();
+		}
+		catch (error)
+		{
+			console.error(error);
+			updateStatus('Unable to load variables: ' + error.message, true);
+		}
+	})();
 };
 
 /**

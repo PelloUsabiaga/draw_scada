@@ -7,6 +7,10 @@ below **General** and above **Basic**. It contains ten controls: **Button**,
 Select a widget and use the **SCADA** format tab to configure its label, tag,
 write value, units, precision, LED/switch/diagnostics colors, dropdown options,
 or numeric ranges.
+Tag fields remain editable and include a picker button that loads variables
+from the configured backend, groups them by namespace, and searches their
+metadata. Selecting a variable also fills any matching unit and precision
+fields exposed by the backend.
 The Boolean LED is a small, round indicator with no text; its color shows the
 boolean state. Non-boolean values show an unknown state.
 Diagnostics is a placeable widget with a connection LED and a textbox showing
@@ -132,7 +136,8 @@ Supported local types are `float`, `integer`, `boolean`, `string`, and `json`.
 Variable tags are formed from `namespace_prefix` plus the variable name.
 Writes are type-checked, and variables can be marked `"writable": false`.
 `GET /api/variables` returns each configured tag's type, current and default
-values, writable flag, connector ID, unit, and description. The existing
+values, writable flag, connector ID, unit, description, and optional precision
+(`0`-`15` decimal places). The existing
 `GET /api/read` and `POST /api/write` endpoints continue to serve HMI widgets.
 Query `http://127.0.0.1:8765/api/variables` to retrieve the inventory:
 
@@ -148,6 +153,7 @@ Query `http://127.0.0.1:8765/api/variables` to retrieve the inventory:
       "default": 20.0,
       "writable": true,
       "unit": "°C",
+      "precision": 1,
       "description": "Simulated process temperature"
     }
   ]
