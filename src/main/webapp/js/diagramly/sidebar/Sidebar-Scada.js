@@ -109,7 +109,7 @@
 				value.setAttribute('scadaType', 'selectValue');
 				value.setAttribute('tag', 'process.running');
 				value.setAttribute('options',
-					'[{"label":"Off","value":false},{"label":"On","value":true}]');
+					'Off: false\nOn: true');
 
 				var select = new mxCell(value, new mxGeometry(0, 0, 180, 48),
 					'shape=rect;rounded=1;arcSize=12;container=1;collapsible=0;' +

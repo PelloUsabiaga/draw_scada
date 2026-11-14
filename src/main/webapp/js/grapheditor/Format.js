@@ -2297,6 +2297,44 @@ ScadaWidgetFormatPanel.prototype.init = function()
 {
 	var graph = this.editorUi.editor.graph;
 	var fields;
+	var formatSelectOptions = function(raw)
+	{
+		var options = null;
+
+		try
+		{
+			options = JSON.parse(raw);
+		}
+		catch (error)
+		{
+			return raw;
+		}
+
+		if (!Array.isArray(options))
+		{
+			return raw;
+		}
+
+		var lines = [];
+
+		for (var i = 0; i < options.length; i++)
+		{
+			var option = options[i];
+
+			if (option == null || typeof option.label != 'string' ||
+				option.label.trim() != option.label || /[\r\n]/.test(option.label) ||
+				(typeof option.value != 'string' && typeof option.value != 'number' &&
+					typeof option.value != 'boolean') ||
+				(typeof option.value == 'number' && !isFinite(option.value)))
+			{
+				return raw;
+			}
+
+			lines.push(option.label + ': ' + JSON.stringify(option.value));
+		}
+
+		return lines.join('\n');
+	};
 
 	if (this.type == 'button')
 	{
@@ -2349,7 +2387,7 @@ ScadaWidgetFormatPanel.prototype.init = function()
 		fields = [
 			{key: 'label', label: 'Accessible label'},
 			{key: 'tag', label: 'Variable/tag'},
-			{key: 'options', label: 'Options (JSON label/value pairs)', type: 'textarea'}
+			{key: 'options', label: 'Options (one label: JSON value per line)', type: 'textarea'}
 		];
 	}
 	else
@@ -2416,6 +2454,11 @@ ScadaWidgetFormatPanel.prototype.init = function()
 
 		var fieldValue = graph.getAttributeForCell(this.cell, field.key, '');
 
+		if (this.type == 'selectValue' && field.key == 'options')
+		{
+			fieldValue = formatSelectOptions(fieldValue);
+		}
+
 		if (this.type == 'booleanSwitch' && field.key == 'ariaLabel' &&
 			graph.getAttributeForCell(this.cell, 'ariaLabel', null) == null)
 		{
@@ -2425,6 +2468,22 @@ ScadaWidgetFormatPanel.prototype.init = function()
 		input.value = fieldValue;
 		input.style.width = 'calc(100% - 10px)';
 		input.setAttribute('aria-label', field.label);
+
+		if (field.type == 'textarea')
+		{
+			var stopPropagation = function(evt)
+			{
+				if (evt.stopPropagation)
+				{
+					evt.stopPropagation();
+				}
+
+				evt.cancelBubble = true;
+			};
+
+			mxEvent.addListener(input, 'mousedown', stopPropagation);
+			mxEvent.addListener(input, 'selectstart', stopPropagation);
+		}
 
 		(function(panel, field, input)
 		{

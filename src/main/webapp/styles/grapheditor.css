@@ -1998,10 +1998,15 @@ a.geStatus>div {
 	position: relative;
 }
 
-.geFormatSection *:empty:not(input),
+.geFormatSection *:empty:not(input):not(textarea),
 .geToolbarContainer *:not(input) {
 	-webkit-user-select: none;
 	user-select: none;
+}
+
+.geFormatSection textarea {
+	-webkit-user-select: text;
+	user-select: text;
 }
 
 .geFormatSection input:not([type="checkbox"], [type="radio"]),

@@ -196,19 +196,70 @@
 			var parseSelectOptions = function(raw, tag)
 			{
 				var options = null;
+				var trimmed = raw.trim();
 
-				try
+				if (trimmed.charAt(0) == '[')
 				{
-					options = JSON.parse(raw);
+					try
+					{
+						options = JSON.parse(trimmed);
+					}
+					catch (error)
+					{
+						throw new Error('Invalid Select value options for "' + tag + '": ' + error.message);
+					}
 				}
-				catch (error)
+				else
 				{
-					throw new Error('Invalid Select value options for "' + tag + '": ' + error.message);
+					options = [];
+					var lines = raw.split(/\r?\n/);
+
+					for (var lineIndex = 0; lineIndex < lines.length; lineIndex++)
+					{
+						var line = lines[lineIndex];
+
+						if (line.trim().length == 0)
+						{
+							continue;
+						}
+
+						var separator = line.indexOf(':');
+
+						if (separator < 0)
+						{
+							throw new Error('Select value options for "' + tag +
+								'" must use "label: JSON value" on line ' + (lineIndex + 1));
+						}
+
+						var label = line.substring(0, separator).trim();
+						var rawValue = line.substring(separator + 1).trim();
+
+						if (label.length == 0 || rawValue.length == 0)
+						{
+							throw new Error('Select value options for "' + tag +
+								'" need a label and JSON value on line ' + (lineIndex + 1));
+						}
+
+						var value = null;
+
+						try
+						{
+							value = JSON.parse(rawValue);
+						}
+						catch (error)
+						{
+							throw new Error('Invalid JSON value for Select value "' + tag +
+								'" on line ' + (lineIndex + 1) + ': ' + error.message);
+						}
+
+						options.push({label: label, value: value});
+					}
 				}
 
 				if (!Array.isArray(options) || options.length == 0)
 				{
-					throw new Error('Select value options for "' + tag + '" must be a non-empty JSON array');
+					throw new Error('Select value options for "' + tag +
+						'" must contain at least one option');
 				}
 
 				var parsed = [];
@@ -228,7 +279,8 @@
 					var value = option.value;
 					var valueType = typeof value;
 
-					if (valueType != 'string' && valueType != 'number' && valueType != 'boolean')
+					if (valueType != 'string' && valueType != 'number' && valueType != 'boolean' ||
+						(valueType == 'number' && !isFinite(value)))
 					{
 						throw new Error('Each Select value option for "' + tag +
 							'" must have a string, number, or boolean value');

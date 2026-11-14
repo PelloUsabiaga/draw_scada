@@ -17,20 +17,20 @@ accessibility. It commits its value on Enter or when focus leaves the field;
 Escape cancels the edit.
 Select value is a composed rounded selector with a current-value label and a
 down arrow. Clicking anywhere on it opens the native dropdown. Configure its
-options as a JSON array of unique scalar values with display labels, for example:
+options with one display label and JSON scalar value per line, separated by a
+colon. String values must be quoted:
 
-```json
-[
-  {"label": "Stopped", "value": false},
-  {"label": "Running", "value": true},
-  {"label": "Automatic", "value": "auto"},
-  {"label": "Manual", "value": "manual"}
-]
+```text
+Stopped: false
+Running: true
+Error: "error"
+5: 5
 ```
 
 Changing the selection immediately writes that typed JSON value to the bound
-tag. The dropdown reflects the value returned by polling; malformed option JSON
-is reported in the runtime log.
+tag. The dropdown reflects the value returned by polling. Existing JSON-array
+option definitions remain supported. Invalid option lines or JSON values are
+reported in the runtime log.
 Input value uses a gray rounded outer container and an inset white editable
 field. The default Button is gray with a more rounded shape.
 Switch is a composed, rounded track with a separately editable knob. It writes
