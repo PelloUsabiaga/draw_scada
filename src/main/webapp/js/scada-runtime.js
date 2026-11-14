@@ -1333,8 +1333,9 @@
 
 			var sliderValueFromEvent = function(widget, evt)
 			{
-				var ctm = widget.sliderNode.getScreenCTM();
-				var svg = widget.sliderNode.ownerSVGElement;
+				var trackShape = widget.sliderTrackShape;
+				var ctm = trackShape.getScreenCTM();
+				var svg = trackShape.ownerSVGElement;
 
 				if (ctm == null || svg == null)
 				{
@@ -1346,7 +1347,7 @@
 				point.y = mxEvent.getClientY(evt);
 				point = point.matrixTransform(ctm.inverse());
 
-				var bounds = widget.sliderNode.getBBox();
+				var bounds = trackShape.getBBox();
 				var horizontal = widget.orientation == 'horizontal';
 				var axis = horizontal ? point.x : point.y;
 				var boundsStart = horizontal ? bounds.x : bounds.y;
@@ -1420,6 +1421,8 @@
 								{
 									widget.sliderNode = node;
 									widget.sliderKnobNode = knobNode;
+									widget.sliderTrackShape = node.querySelector(
+										'rect,ellipse,path,polygon,polyline,line') || node;
 									node.style.cursor = 'ew-resize';
 									knobNode.style.cursor = 'ew-resize';
 									node.style.touchAction = 'none';
