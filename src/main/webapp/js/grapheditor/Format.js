@@ -475,6 +475,7 @@ Format.prototype.immediateRefresh = function()
 		if (scadaType == 'button' || scadaType == 'outputValue' ||
 			scadaType == 'selectValue' ||
 			scadaType == 'booleanLed' || scadaType == 'booleanSwitch' ||
+			scadaType == 'diagnostics' ||
 			scadaType == 'barGauge' || scadaType == 'slider' ||
 			scadaType == 'inputValue')
 		{
@@ -2305,10 +2306,16 @@ ScadaWidgetFormatPanel.prototype.init = function()
 	else if (this.type == 'booleanLed')
 	{
 		fields = [
-			{key: 'label', label: 'Boolean LED label'},
 			{key: 'tag', label: 'Boolean variable/tag'},
 			{key: 'onColor', label: 'ON color', type: 'color', defaultColor: '#d5e8d4'},
 			{key: 'offColor', label: 'OFF color', type: 'color', defaultColor: '#f5f5f5'}
+		];
+	}
+	else if (this.type == 'diagnostics')
+	{
+		fields = [
+			{key: 'onColor', label: 'Connected color', type: 'color', defaultColor: '#85ee80'},
+			{key: 'offColor', label: 'Disconnected color', type: 'color', defaultColor: '#f09898'}
 		];
 	}
 	else if (this.type == 'booleanSwitch')
@@ -2357,6 +2364,7 @@ ScadaWidgetFormatPanel.prototype.init = function()
 		(this.type == 'outputValue') ? 'Output value' :
 		(this.type == 'selectValue') ? 'Select value' :
 		(this.type == 'booleanSwitch') ? 'Switch' :
+		(this.type == 'diagnostics') ? 'Diagnostics' :
 		(this.type == 'barGauge') ? 'Bar gauge' :
 		(this.type == 'slider') ? 'Slider' :
 		(this.type == 'booleanLed') ? 'Boolean LED' : 'SCADA Widget';

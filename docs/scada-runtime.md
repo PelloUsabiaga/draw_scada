@@ -1,12 +1,17 @@
 # SCADA browser runtime
 
-The editor adds a **More Shapes → Other → SCADA Widgets** library with eight
+The editor adds a **More Shapes → Other → SCADA Widgets** library with nine
 controls: **Button**, **Input value**, **Output value**, **Boolean LED**,
-**Select value**, **Switch**, **Bar gauge**, and **Slider**. Select a widget and
-use the **SCADA** format tab to configure its label, tag, write value, units,
-precision, LED/switch colors, dropdown options, or numeric ranges.
-The Boolean LED shows `ON` for `true` and `OFF` for `false`, using its
-configured state colors; non-boolean values show an unknown state.
+**Diagnostics**, **Select value**, **Switch**, **Bar gauge**, and **Slider**.
+Select a widget and use the **SCADA** format tab to configure its label, tag,
+write value, units, precision, LED/switch/diagnostics colors, dropdown options,
+or numeric ranges.
+The Boolean LED is a small, round indicator with no text; its color shows the
+boolean state. Non-boolean values show an unknown state.
+Diagnostics is a placeable widget with a connection LED and a textbox showing
+the latest SCADA runtime status or operation/error message. Every Diagnostics
+widget on the diagram displays the same information. The fixed status message
+previously shown at the top of the screen is no longer used.
 Input value is an always-visible text field; its label is used for
 accessibility. It commits its value on Enter or when focus leaves the field;
 Escape cancels the edit.
@@ -24,7 +29,7 @@ options as a JSON array of unique scalar values with display labels, for example
 
 Changing the selection immediately writes that typed JSON value to the bound
 tag. The dropdown reflects the value returned by polling; malformed option JSON
-is reported in the runtime status.
+is reported in the runtime log.
 Switch is a composed, rounded track with a separately editable knob. It writes
 the opposite boolean value immediately when toggled; its ON and OFF track colors
 are configurable. The switch stays disabled until polling returns a boolean for

@@ -34,9 +34,45 @@
 			createWidget('outputValue', 'Output value', 150, 55,
 				'rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;',
 				{tag: 'process.temperature', units: '', precision: '1'}),
-			createWidget('booleanLed', 'Boolean LED', 130, 50,
-				'rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;',
-				{tag: 'process.running', onColor: '#85ee80', offColor: '#f09898'}),
+			createWidget('booleanLed', 'Boolean LED', 36, 36,
+				'shape=ellipse;noLabel=1;whiteSpace=wrap;html=1;' +
+				'fillColor=#f5f5f5;strokeColor=#666666;',
+				{label: '', tag: 'process.running', onColor: '#85ee80', offColor: '#f09898'}),
+			this.addEntry('scada diagnostics status log', mxUtils.bind(this, function()
+			{
+				var xmlDoc = mxUtils.createXmlDocument();
+				var value = xmlDoc.createElement('object');
+				value.setAttribute('label', '');
+				value.setAttribute('scadaType', 'diagnostics');
+				value.setAttribute('onColor', '#85ee80');
+				value.setAttribute('offColor', '#f09898');
+
+				var diagnostics = new mxCell(value, new mxGeometry(0, 0, 280, 64),
+					'shape=rect;rounded=1;arcSize=20;container=1;collapsible=0;' +
+					'recursiveResize=1;fillColor=#f5f5f5;strokeColor=#666666;' +
+					'strokeWidth=1;html=1;whiteSpace=wrap;');
+				diagnostics.vertex = true;
+
+				var ledValue = xmlDoc.createElement('object');
+				ledValue.setAttribute('label', '');
+				ledValue.setAttribute('scadaDiagnosticsPart', 'led');
+				var led = new mxCell(ledValue, new mxGeometry(10, 20, 24, 24),
+					'shape=ellipse;fillColor=#f09898;strokeColor=#666666;strokeWidth=1;');
+				led.vertex = true;
+				diagnostics.insert(led);
+
+				var logValue = xmlDoc.createElement('object');
+				logValue.setAttribute('label', 'Waiting for SCADA connection');
+				logValue.setAttribute('scadaDiagnosticsPart', 'log');
+				var log = new mxCell(logValue, new mxGeometry(44, 8, 228, 48),
+					'shape=rect;rounded=1;whiteSpace=wrap;html=0;fillColor=#ffffff;' +
+					'strokeColor=none;fontColor=#333333;align=left;verticalAlign=middle;' +
+					'spacingLeft=8;fontSize=12;');
+				log.vertex = true;
+				diagnostics.insert(log);
+
+				return this.createVertexTemplateFromCells([diagnostics], 280, 64, 'Diagnostics');
+			})),
 			createWidget('inputValue', 'Input value', 150, 50,
 				'rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;',
 				{tag: 'process.temperature', units: '', precision: '1'}),

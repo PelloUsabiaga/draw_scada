@@ -9,22 +9,6 @@
 		externalConfigUrl: ''
 	};
 
-	var statusElement = null;
-	var updateStatus = function(message, isError)
-	{
-		if (statusElement == null)
-		{
-			statusElement = document.createElement('div');
-			statusElement.style.cssText = 'position:fixed;right:8px;top:8px;padding:6px 10px;' +
-				'font:12px sans-serif;background:#f3f3f3;color:#333;border:1px solid #bbb;' +
-				'z-index:10000;max-width:60vw;';
-			document.body.appendChild(statusElement);
-		}
-
-		statusElement.textContent = message;
-		statusElement.style.color = isError ? '#b00020' : '#333';
-	};
-
 	var mergeConfig = function(base, override)
 	{
 		var merged = Object.create(null);
@@ -57,14 +41,131 @@
 	var initRuntime = async function(viewer)
 	{
 		var config = mergeConfig(defaults, viewer.graphConfig.scada || {});
-
-		if (!config.enabled)
+		var graph = viewer.graph;
+		var model = graph.getModel();
+		var cells = model.getDescendants(model.getRoot());
+		var widgets = [];
+		var tags = Object.create(null);
+		var diagnosticsWidgets = [];
+		var diagnosticsState = {
+			connected: false,
+			lastLog: 'Waiting for SCADA connection',
+			isError: false
+		};
+		var updateDiagnosticsWidget = function(widget)
 		{
-			return;
-		}
+			var fillColor = diagnosticsState.connected ? widget.onColor : widget.offColor;
+			var ledStyle = graph.getCellStyle(widget.ledCell);
+
+			if (ledStyle[mxConstants.STYLE_FILLCOLOR] != fillColor)
+			{
+				graph.setCellStyles(mxConstants.STYLE_FILLCOLOR, fillColor, [widget.ledCell]);
+			}
+
+			var logStyle = graph.getCellStyle(widget.logCell);
+			var fontColor = diagnosticsState.isError ? '#b00020' :
+				widget.defaultFontColor;
+
+			if (logStyle[mxConstants.STYLE_FONTCOLOR] != fontColor)
+			{
+				graph.setCellStyles(mxConstants.STYLE_FONTCOLOR, fontColor, [widget.logCell]);
+			}
+
+			if (widget.lastLog != diagnosticsState.lastLog)
+			{
+				graph.cellLabelChanged(widget.logCell, diagnosticsState.lastLog, false);
+				widget.lastLog = diagnosticsState.lastLog;
+			}
+		};
+		var refreshDiagnostics = function()
+		{
+			for (var i = 0; i < diagnosticsWidgets.length; i++)
+			{
+				updateDiagnosticsWidget(diagnosticsWidgets[i]);
+			}
+		};
+		var updateStatus = function(message, isError, connected)
+		{
+			diagnosticsState.lastLog = message;
+			diagnosticsState.isError = !!isError;
+
+			if (connected != null)
+			{
+				diagnosticsState.connected = connected;
+			}
+
+			refreshDiagnostics();
+		};
+		var updateConnection = function(connected)
+		{
+			if (diagnosticsState.connected != connected)
+			{
+				diagnosticsState.connected = connected;
+				diagnosticsState.lastLog = connected ? 'Connected' : 'Disconnected';
+				diagnosticsState.isError = false;
+				refreshDiagnostics();
+			}
+		};
 
 		try
 		{
+			for (var i = 0; i < cells.length; i++)
+			{
+				if (graph.getAttributeForCell(cells[i], 'scadaType', null) == 'diagnostics')
+				{
+					var diagnosticsLedCell = null;
+					var diagnosticsLogCell = null;
+
+					for (var childIndex = 0; childIndex < model.getChildCount(cells[i]); childIndex++)
+					{
+						var child = model.getChildAt(cells[i], childIndex);
+						var part = graph.getAttributeForCell(child, 'scadaDiagnosticsPart', null);
+
+						if (part == 'led')
+						{
+							if (diagnosticsLedCell != null)
+							{
+								throw new Error('Diagnostics widget has more than one LED');
+							}
+
+							diagnosticsLedCell = child;
+						}
+						else if (part == 'log')
+						{
+							if (diagnosticsLogCell != null)
+							{
+								throw new Error('Diagnostics widget has more than one log textbox');
+							}
+
+							diagnosticsLogCell = child;
+						}
+					}
+
+					if (diagnosticsLedCell == null || diagnosticsLogCell == null)
+					{
+						throw new Error('Diagnostics widget must contain an LED and a log textbox');
+					}
+
+					var logStyle = graph.getCellStyle(diagnosticsLogCell);
+					diagnosticsWidgets.push({
+						ledCell: diagnosticsLedCell,
+						logCell: diagnosticsLogCell,
+						onColor: graph.getAttributeForCell(cells[i], 'onColor', '#85ee80'),
+						offColor: graph.getAttributeForCell(cells[i], 'offColor', '#f09898'),
+						defaultFontColor: logStyle[mxConstants.STYLE_FONTCOLOR] || '#333333',
+						lastLog: null
+					});
+				}
+			}
+
+			refreshDiagnostics();
+
+			if (!config.enabled)
+			{
+				updateStatus('SCADA runtime disabled', false, false);
+				return;
+			}
+
 			if (config.externalConfigUrl)
 			{
 				var overrideUrl = new URL(config.externalConfigUrl, document.baseURI);
@@ -92,11 +193,6 @@
 				throw new Error('Poll interval must be between 100 and 60000 ms');
 			}
 
-			var graph = viewer.graph;
-			var model = graph.getModel();
-			var widgets = [];
-			var tags = Object.create(null);
-			var cells = model.getDescendants(model.getRoot());
 			var parseSelectOptions = function(raw, tag)
 			{
 				var options = null;
@@ -177,6 +273,11 @@
 					type == 'inputValue')
 				{
 					var tag = graph.getAttributeForCell(cell, 'tag', '');
+
+					if (type == 'booleanLed')
+					{
+						graph.setCellStyles(mxConstants.STYLE_NOLABEL, '1', [cell]);
+					}
 
 					if (tag.length == 0)
 					{
@@ -424,7 +525,7 @@
 					headers: {'Content-Type': 'application/json'},
 					body: JSON.stringify({tag: widget.tag, value: value})
 				});
-				updateStatus('Connected · wrote ' + widget.tag, false);
+				updateStatus('Connected · wrote ' + widget.tag, false, true);
 			};
 
 			var writeValue = function(widget)
@@ -586,12 +687,9 @@
 
 				widget.booleanLedInitialized = true;
 				widget.booleanLedValue = value;
-				var stateLabel = (value === true) ? 'ON' : (value === false) ? 'OFF' : '—';
 				var fillColor = (value === true) ? widget.onColor :
-    				(value === false) ? widget.offColor : '#fff2cc';
+					(value === false) ? widget.offColor : '#fff2cc';
 				graph.setCellStyles(mxConstants.STYLE_FILLCOLOR, fillColor, [widget.cell]);
-				graph.cellLabelChanged(widget.cell,
-					(widget.label ? widget.label + ': ' : '') + stateLabel, false);
 			};
 
 			var updateBooleanSwitch = function(widget, value)
@@ -730,7 +828,7 @@
 												widget.writePending = false;
 												updateBooleanSwitch(widget, previousValue);
 												console.error(error);
-												updateStatus(error.message, true);
+												updateStatus(error.message, true, false);
 											});
 										};
 
@@ -856,7 +954,7 @@
 											widget.writePending = false;
 											updateBooleanSwitch(widget, previousValue);
 											console.error(error);
-											updateStatus(error.message, true);
+											updateStatus(error.message, true, false);
 										});
 									});
 
@@ -970,7 +1068,7 @@
 										writeValue(widget).catch(function(error)
 										{
 											console.error(error);
-											updateStatus(error.message, true);
+											updateStatus(error.message, true, false);
 										});
 									};
 									var releaseKey = function(evt)
@@ -1106,7 +1204,7 @@
 										}).catch(function(error)
 										{
 											console.error(error);
-											updateStatus(error.message, true);
+											updateStatus(error.message, true, false);
 										});
 									};
 
@@ -1290,7 +1388,7 @@
 											select.disabled = false;
 											renderSelectValue(widget, widget.value);
 											console.error(error);
-											updateStatus(error.message, true);
+											updateStatus(error.message, true, false);
 										});
 									});
 									node.style.cursor = 'pointer';
@@ -1393,7 +1491,7 @@
 					widget.writePending = false;
 					updateSlider(widget, previousValue);
 					console.error(error);
-					updateStatus(error.message, true);
+					updateStatus(error.message, true, false);
 				});
 			};
 
@@ -1620,9 +1718,9 @@
 
 			var tagList = Object.keys(tags);
 
-			if (tagList.length == 0)
+			if (tagList.length == 0 && diagnosticsWidgets.length == 0)
 			{
-				updateStatus('SCADA runtime ready · no bound variables', false);
+				updateStatus('SCADA runtime ready · no bound variables', false, false);
 				return;
 			}
 
@@ -1672,12 +1770,12 @@
 						}
 					}
 
-					updateStatus('Connected', false);
+					updateConnection(true);
 				}
 				catch (error)
 				{
 					console.error(error);
-					updateStatus(error.message, true);
+					updateStatus(error.message, true, false);
 				}
 				finally
 				{
@@ -1690,7 +1788,7 @@
 		catch (error)
 		{
 			console.error(error);
-			updateStatus(error.message, true);
+			updateStatus(error.message, true, false);
 		}
 	};
 
