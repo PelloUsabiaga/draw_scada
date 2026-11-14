@@ -1477,6 +1477,7 @@
 		}
 
 		this.addGeneralPalette(this.customEntries == null);
+		this.addScadaPalette();
 		this.addMiscPalette(false);	
 		this.addAdvancedPalette(false);
 		this.addBasicPalette();
@@ -1644,7 +1645,6 @@
 		this.addInfographicPalette();
 		this.addEipPalette();
 		this.addElectricalPalette();
-		this.addScadaPalette();
 		this.addFloorplanPalette();
 		this.addFluidPowerPalette();
 		this.addGMDLPalette();

@@ -1,9 +1,9 @@
 # SCADA browser runtime
 
-The editor adds a **More Shapes → Other → SCADA Widgets** library with ten
-controls: **Button**, **Input value**, **Output value**, **Boolean LED**,
-**Diagnostics**, **Select value**, **Switch**, **Checkbox**, **Bar gauge**, and
-**Slider**.
+The standard sidebar includes an expanded-by-default **SCADA / Widgets** palette
+below **General** and above **Basic**. It contains ten controls: **Button**,
+**Input value**, **Output value**, **Switch**, **Checkbox**, **Boolean LED**,
+**Select value**, **Slider**, **Bar gauge**, and **Diagnostics**.
 Select a widget and use the **SCADA** format tab to configure its label, tag,
 write value, units, precision, LED/switch/diagnostics colors, dropdown options,
 or numeric ranges.
