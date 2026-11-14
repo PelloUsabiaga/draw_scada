@@ -3575,6 +3575,21 @@
 	EditorUi.prototype.getHtml2 = function(xml, graph, title, editLink, redirect)
 	{
 		var js = window.DRAWIO_VIEWER_URL || EditorUi.drawHost + '/js/viewer-static.min.js';
+		var scadaConfig = null;
+
+		try
+		{
+			scadaConfig = EditorUi.getScadaConfig(this.fileNode);
+		}
+		catch (e)
+		{
+			throw new Error('Cannot export invalid SCADA metadata: ' + e.message);
+		}
+
+		var hasScadaWidgets = EditorUi.hasScadaWidgets(graph);
+
+		var useScadaRuntime = scadaConfig.enabled && (hasScadaWidgets ||
+			(this.fileNode != null && this.fileNode.hasAttribute('scada')));
 	
 		// Makes XHTML compatible
 		if (redirect != null)
@@ -3584,26 +3599,115 @@
 		
 		var data = {highlight: '#0000ff', nav: this.editor.graph.foldingEnabled, resize: true,
 			xml: Graph.zapGremlins(xml), toolbar: 'pages zoom layers lightbox'};
+
+		if (useScadaRuntime)
+		{
+			data.scada = scadaConfig;
+			data.nav = false;
+			data.resize = false;
+			data.responsive = true;
+			data['auto-fit'] = true;
+			data.lightbox = false;
+			delete data.toolbar;
+			js = 'js/viewer-static.min.js';
+		}
 		
 		if (this.pages != null && this.currentPage != null)
 		{
 			data.page = mxUtils.indexOf(this.pages, this.currentPage);
 		}
 	
-		var style = 'max-width:100%;border:1px solid transparent;';
+		var style = (useScadaRuntime) ? 'width:100%;height:100vh;border:0;' :
+			'max-width:100%;border:1px solid transparent;';
 	
 		return ((redirect == null) ? '<!--[if IE]><meta http-equiv="X-UA-Compatible" content="IE=5,IE=9" ><![endif]-->\n' : '') +
 			'<!DOCTYPE html>\n<html' + ((redirect != null) ? ' xmlns="http://www.w3.org/1999/xhtml">' : '>') +
 			'\n<head>\n' + ((redirect == null) ? ((title != null) ? '<title>' + mxUtils.htmlEntities(title) +
 				'</title>\n' : '') : '<title>draw.io</title>\n') +
 			((redirect != null) ? '<meta http-equiv="refresh" content="0;URL=\'' + redirect + '\'"/>\n' : '') +
-			'<meta charset="utf-8"/>\n</head>\n<body>' +
+			'<meta charset="utf-8"/>\n' +
+			((useScadaRuntime) ? '<meta name="viewport" content="width=device-width, initial-scale=1"/>\n' : '') +
+			'</head>\n<body' + ((useScadaRuntime) ? ' style="margin:0;overflow:hidden;"' : '') + '>' +
 			'\n<div class="mxgraph" style="' + style + '" data-mxgraph="' + mxUtils.htmlEntities(JSON.stringify(data)) + '"></div>\n' +
-			((redirect == null) ? '<script type="text/javascript" src="' + js + '"></script>' :
+			((redirect == null) ? ((useScadaRuntime) ?
+			'<script type="text/javascript" src="js/scada-runtime.js"></script>\n' +
+			'<script type="text/javascript" src="' + js + '"></script>' :
+			'<script type="text/javascript" src="' + js + '"></script>') :
 			'<a style="position:absolute;top:50%;left:50%;margin-top:-128px;margin-left:-64px;" ' +
 			'href="' + redirect + '" target="_blank"><img border="0" ' +
 			'src="' + EditorUi.drawHost + '/images/drawlogo128.png"/></a>') +
 			'\n</body>\n</html>\n';
+	};
+
+	EditorUi.scadaConfigDefaults = {
+		enabled: true,
+		endpointUrl: 'http://localhost:8765',
+		readPath: '/api/read',
+		writePath: '/api/write',
+		pollIntervalMs: 1000,
+		externalConfigUrl: ''
+	};
+
+	EditorUi.hasScadaWidgets = function(graph)
+	{
+		var model = graph.getModel();
+		var cells = model.getDescendants(model.getRoot());
+
+		for (var i = 0; i < cells.length; i++)
+		{
+			if (graph.getAttributeForCell(cells[i], 'scadaType', null) != null)
+			{
+				return true;
+			}
+		}
+
+		return false;
+	};
+
+	EditorUi.getScadaConfig = function(fileNode)
+	{
+		var config = {};
+		var raw = (fileNode != null) ? fileNode.getAttribute('scada') : null;
+
+		if (raw != null && raw.length > 0)
+		{
+			config = JSON.parse(raw);
+
+			if (config == null || typeof config != 'object' || Array.isArray(config))
+			{
+				throw new Error('SCADA settings must be a JSON object');
+			}
+		}
+
+		var result = Object.create(null);
+
+		for (var key in EditorUi.scadaConfigDefaults)
+		{
+			result[key] = (config[key] != null) ? config[key] : EditorUi.scadaConfigDefaults[key];
+		}
+
+		for (var key in config)
+		{
+			result[key] = config[key];
+		}
+
+		return result;
+	};
+
+	EditorUi.setScadaConfig = function(ui, config)
+	{
+		if (ui.fileNode == null)
+		{
+			ui.fileNode = document.createElement('mxfile');
+		}
+
+		ui.fileNode.setAttribute('scada', JSON.stringify(config));
+		var file = ui.getCurrentFile();
+
+		if (file != null)
+		{
+			file.fileChanged();
+		}
 	};
 
 	/**

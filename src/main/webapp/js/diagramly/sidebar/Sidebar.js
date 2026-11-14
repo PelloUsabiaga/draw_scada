@@ -160,6 +160,7 @@
            	                           {id: 'gcpicons', prefix: 'gcpicons', libs: Sidebar.prototype.gcpicons},
            	                           {id: 'rack', prefix: 'rack', libs: Sidebar.prototype.rack},
            	                           {id: 'electrical', prefix: 'electrical', libs: Sidebar.prototype.electrical},
+									   {id: 'scada', prefix: 'scada', libs: ['Widgets']},
            	                           {id: 'aws2', prefix: 'aws2', libs: Sidebar.prototype.aws2},
            	                           {id: 'aws3', prefix: 'aws3', libs: Sidebar.prototype.aws3},
            	                           {id: 'aws4b', prefix: 'aws4b', libs: Sidebar.prototype.aws4b},
@@ -567,6 +568,7 @@
 								{title: 'Infographic', id: 'infographic', image: IMAGE_PATH + '/sidebar-infographic.png'},
 								{title: mxResources.get('eip'), id: 'eip', image: IMAGE_PATH + '/sidebar-eip.png'},
 								{title: mxResources.get('electrical'), id: 'electrical', image: IMAGE_PATH + '/sidebar-electrical.png'},
+								{title: 'SCADA Widgets', id: 'scada', image: IMAGE_PATH + '/sidebar-electrical.png'},
 								{title: mxResources.get('floorplans'), id: 'floorplan', image: IMAGE_PATH + '/sidebar-floorplans.png'},
 								{title: 'Fluid Power (ISO 1219)', id: 'fluid_power', image: IMAGE_PATH + '/sidebar-fluid_power.png'},
 								{title: mxResources.get('gmdl'), id: 'gmdl', image: IMAGE_PATH + '/sidebar-gmdl.png'},
@@ -1642,6 +1644,7 @@
 		this.addInfographicPalette();
 		this.addEipPalette();
 		this.addElectricalPalette();
+		this.addScadaPalette();
 		this.addFloorplanPalette();
 		this.addFluidPowerPalette();
 		this.addGMDLPalette();

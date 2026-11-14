@@ -750,6 +750,19 @@
 					initialZoom, linkTarget, linkColor, fit, allPages, layers, tags, lightbox, editLink, theme,
 					useTagSettings, linkIcons, tooltipIcons)
 				{
+					var scadaConfig = EditorUi.getScadaConfig(editorUi.fileNode);
+
+					if (scadaConfig.enabled && (EditorUi.hasScadaWidgets(graph) ||
+						(editorUi.fileNode != null && editorUi.fileNode.hasAttribute('scada'))))
+					{
+						var basename = editorUi.getBaseFilename(allPages);
+						var filename = basename + ((basename.substring(basename.length - 7) ==
+							'.drawio') ? '' : '.drawio') + '.html';
+						var html = editorUi.getHtml2(editorUi.getFileData(true), graph, basename);
+						editorUi.saveData(filename, 'html', html, 'text/html');
+						return;
+					}
+
 					editorUi.createHtml(publicUrl, zoomEnabled, initialZoom, linkTarget, linkColor, fit, allPages,
 						layers, tags, lightbox, editLink, mxUtils.bind(this, function(html, scriptTag)
 						{

@@ -446,6 +446,28 @@ Format.prototype.immediateRefresh = function()
 
 			addClickHandler(label, stylePanel, idx++);
 		}
+
+		var selectedCells = graph.getSelectionCells();
+		var scadaCell = (selectedCells.length == 1) ? selectedCells[0] : null;
+		var scadaValue = (scadaCell != null) ? graph.getModel().getValue(scadaCell) : null;
+		var scadaType = (scadaValue != null && typeof scadaValue == 'object') ?
+			scadaValue.getAttribute('scadaType') : null;
+
+		if (scadaType == 'button' || scadaType == 'display')
+		{
+			var scadaLabel = label.cloneNode(false);
+			var scadaTitle = document.createElement('div');
+			mxUtils.write(scadaTitle, 'SCADA');
+			scadaLabel.appendChild(scadaTitle);
+			scadaLabel.setAttribute('title', 'SCADA');
+			div.appendChild(scadaLabel);
+
+			var scadaPanel = div.cloneNode(false);
+			scadaPanel.style.display = 'none';
+			this.panels.push(new ScadaWidgetFormatPanel(this, ui, scadaPanel, scadaCell, scadaType));
+			this.container.appendChild(scadaPanel);
+			addClickHandler(scadaLabel, scadaPanel, idx++);
+		}
 		
 		// Text
 		var title = document.createElement('div');
@@ -2231,6 +2253,60 @@ BaseFormatPanel.prototype.destroy = function()
 		}
 		
 		this.listeners = null;
+	}
+};
+
+/**
+ * Edits the SCADA metadata on a selected widget.
+ */
+ScadaWidgetFormatPanel = function(format, editorUi, container, cell, type)
+{
+	BaseFormatPanel.call(this, format, editorUi, container);
+	this.cell = cell;
+	this.type = type;
+	this.init();
+};
+
+mxUtils.extend(ScadaWidgetFormatPanel, BaseFormatPanel);
+
+ScadaWidgetFormatPanel.prototype.init = function()
+{
+	var graph = this.editorUi.editor.graph;
+	var fields = (this.type == 'button') ?
+		[{key: 'label', label: 'Button label'}, {key: 'tag', label: 'Variable/tag'},
+			{key: 'writeValue', label: 'Value to write (JSON)'}] :
+		[{key: 'label', label: 'Display caption'}, {key: 'tag', label: 'Variable/tag'},
+			{key: 'units', label: 'Units'}, {key: 'precision', label: 'Decimal places', type: 'number'}];
+
+	this.container.appendChild(this.createTitle('SCADA Widget'));
+
+	for (var i = 0; i < fields.length; i++)
+	{
+		var field = fields[i];
+		var row = document.createElement('div');
+		row.style.margin = '8px 0';
+		var label = document.createElement('label');
+		label.style.display = 'block';
+		label.style.marginBottom = '3px';
+		mxUtils.write(label, field.label);
+
+		var input = document.createElement('input');
+		input.type = field.type || 'text';
+		input.value = graph.getAttributeForCell(this.cell, field.key, '');
+		input.style.width = 'calc(100% - 10px)';
+		input.setAttribute('aria-label', field.label);
+
+		(function(panel, field, input)
+		{
+			mxEvent.addListener(input, 'change', function()
+			{
+				graph.setAttributeForCell(panel.cell, field.key, input.value);
+			});
+		})(this, field, input);
+
+		row.appendChild(label);
+		row.appendChild(input);
+		this.container.appendChild(row);
 	}
 };
 
@@ -9600,6 +9676,92 @@ DiagramFormatPanel.prototype.init = function()
 
 		this.container.appendChild(this.addStyleOps(this.createPanel()));
 	}
+
+	var scadaSec = this.createCollapsibleSection('SCADA Connection', true);
+	scadaSec.contentDiv.appendChild(this.addScadaSettings(this.createPanel()));
+	this.container.appendChild(scadaSec.wrapper);
+};
+
+/**
+ * Adds file-specific SCADA connection settings.
+ */
+DiagramFormatPanel.prototype.addScadaSettings = function(div)
+{
+	var ui = this.editorUi;
+	var config = null;
+	var error = null;
+
+	try
+	{
+		config = EditorUi.getScadaConfig(ui.fileNode);
+	}
+	catch (e)
+	{
+		error = document.createElement('div');
+		error.style.color = '#b00020';
+		mxUtils.write(error, 'Invalid SCADA metadata: ' + e.message);
+		div.appendChild(error);
+		return div;
+	}
+
+	var fields = [
+		{key: 'enabled', label: 'Enable SCADA runtime', type: 'checkbox'},
+		{key: 'endpointUrl', label: 'Backend URL', type: 'text'},
+		{key: 'readPath', label: 'Read path', type: 'text'},
+		{key: 'writePath', label: 'Write path', type: 'text'},
+		{key: 'pollIntervalMs', label: 'Poll interval (ms)', type: 'number'},
+		{key: 'externalConfigUrl', label: 'External JSON overrides', type: 'text'}
+	];
+
+	var save = function(field, value)
+	{
+		config[field.key] = (field.type == 'number') ? Number(value) : value;
+		EditorUi.setScadaConfig(ui, config);
+	};
+
+	for (var i = 0; i < fields.length; i++)
+	{
+		var field = fields[i];
+		var row = document.createElement('div');
+		row.style.margin = '8px 0';
+		var label = document.createElement('label');
+		label.style.display = 'block';
+		label.style.marginBottom = '3px';
+		mxUtils.write(label, field.label);
+
+		var input = document.createElement('input');
+		input.type = field.type;
+		if (field.type == 'checkbox')
+		{
+			input.checked = config[field.key] == true;
+		}
+		else
+		{
+			input.value = config[field.key];
+		}
+		input.style.width = 'calc(100% - 10px)';
+		input.setAttribute('aria-label', field.label);
+
+		(function(field, input)
+		{
+			mxEvent.addListener(input, 'change', function()
+			{
+				save(field, (field.type == 'checkbox') ? input.checked : input.value);
+			});
+		})(field, input);
+
+		row.appendChild(label);
+		row.appendChild(input);
+		div.appendChild(row);
+	}
+
+	var note = document.createElement('div');
+	note.style.fontSize = '11px';
+	note.style.whiteSpace = 'normal';
+	mxUtils.write(note, 'External JSON values override these settings. Do not store credentials in the diagram.');
+	div.appendChild(note);
+
+	return div;
 };
 
 /**
