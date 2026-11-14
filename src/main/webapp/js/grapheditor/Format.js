@@ -473,6 +473,7 @@ Format.prototype.immediateRefresh = function()
 		scadaType = Format.normalizeScadaType(scadaType);
 
 		if (scadaType == 'button' || scadaType == 'outputValue' ||
+			scadaType == 'selectValue' ||
 			scadaType == 'booleanLed' || scadaType == 'inputValue')
 		{
 			var scadaLabel = label.cloneNode(false);
@@ -2308,6 +2309,14 @@ ScadaWidgetFormatPanel.prototype.init = function()
 			{key: 'offColor', label: 'OFF color'}
 		];
 	}
+	else if (this.type == 'selectValue')
+	{
+		fields = [
+			{key: 'label', label: 'Accessible label'},
+			{key: 'tag', label: 'Variable/tag'},
+			{key: 'options', label: 'Options (JSON label/value pairs)', type: 'textarea'}
+		];
+	}
 	else
 	{
 		fields = [{key: 'label', label: (this.type == 'inputValue') ? 'Accessible label' : 'Output value label'},
@@ -2318,6 +2327,7 @@ ScadaWidgetFormatPanel.prototype.init = function()
 	var title = (this.type == 'button') ? 'Button' :
 		(this.type == 'inputValue') ? 'Input value' :
 		(this.type == 'outputValue') ? 'Output value' :
+		(this.type == 'selectValue') ? 'Select value' :
 		(this.type == 'booleanLed') ? 'Boolean LED' : 'SCADA Widget';
 	this.container.appendChild(this.createTitle(title));
 
@@ -2331,8 +2341,19 @@ ScadaWidgetFormatPanel.prototype.init = function()
 		label.style.marginBottom = '3px';
 		mxUtils.write(label, field.label);
 
-		var input = document.createElement('input');
-		input.type = field.type || 'text';
+		var input = (field.type == 'textarea') ? document.createElement('textarea') :
+			document.createElement('input');
+
+		if (field.type != 'textarea')
+		{
+			input.type = field.type || 'text';
+		}
+		else
+		{
+			input.rows = 5;
+			input.style.resize = 'vertical';
+		}
+
 		input.value = graph.getAttributeForCell(this.cell, field.key, '');
 		input.style.width = 'calc(100% - 10px)';
 		input.setAttribute('aria-label', field.label);

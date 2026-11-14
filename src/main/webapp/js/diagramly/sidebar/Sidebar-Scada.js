@@ -39,7 +39,11 @@
 				{tag: 'process.running', onColor: '#85ee80', offColor: '#f09898'}),
 			createWidget('inputValue', 'Input value', 150, 50,
 				'rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;',
-				{tag: 'process.temperature', units: '', precision: '1'})
+				{tag: 'process.temperature', units: '', precision: '1'}),
+			createWidget('selectValue', 'Select value', 160, 50,
+				'rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;',
+				{tag: 'process.running',
+					options: '[{"label":"Off","value":false},{"label":"On","value":true}]'})
 		]);
 		this.setCurrentSearchEntryLibrary();
 	};

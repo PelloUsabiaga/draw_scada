@@ -1,14 +1,29 @@
 # SCADA browser runtime
 
-The editor adds a **More Shapes → Other → SCADA Widgets** library with four
-controls: **Button**, **Input value**, **Output value**, and **Boolean LED**.
-Select a widget and use the **SCADA** format tab to configure its label, tag,
-write value, units, precision, or LED colors. The Boolean LED shows `ON` for
-`true` and `OFF` for `false`, using its configured state colors; non-boolean
-values show an unknown state.
+The editor adds a **More Shapes → Other → SCADA Widgets** library with five
+controls: **Button**, **Input value**, **Output value**, **Boolean LED**, and
+**Select value**. Select a widget and use the **SCADA** format tab to configure
+its label, tag, write value, units, precision, LED colors, or dropdown options.
+The Boolean LED shows `ON` for `true` and `OFF` for `false`, using its
+configured state colors; non-boolean values show an unknown state.
 Input value is an always-visible text field; its label is used for
 accessibility. It commits its value on Enter or when focus leaves the field;
 Escape cancels the edit.
+Select value displays a native dropdown inside the diagram. Configure its
+options as a JSON array of unique scalar values with display labels, for example:
+
+```json
+[
+  {"label": "Stopped", "value": false},
+  {"label": "Running", "value": true},
+  {"label": "Automatic", "value": "auto"},
+  {"label": "Manual", "value": "manual"}
+]
+```
+
+Changing the selection immediately writes that typed JSON value to the bound
+tag. The dropdown reflects the value returned by polling; malformed option JSON
+is reported in the runtime status.
 The **Diagram** format tab has a **SCADA Connection** section for file-level
 settings.
 

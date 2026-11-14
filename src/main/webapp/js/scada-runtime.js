@@ -97,6 +97,60 @@
 			var widgets = [];
 			var tags = Object.create(null);
 			var cells = model.getDescendants(model.getRoot());
+			var parseSelectOptions = function(raw, tag)
+			{
+				var options = null;
+
+				try
+				{
+					options = JSON.parse(raw);
+				}
+				catch (error)
+				{
+					throw new Error('Invalid Select value options for "' + tag + '": ' + error.message);
+				}
+
+				if (!Array.isArray(options) || options.length == 0)
+				{
+					throw new Error('Select value options for "' + tag + '" must be a non-empty JSON array');
+				}
+
+				var parsed = [];
+				var seenValues = Object.create(null);
+
+				for (var i = 0; i < options.length; i++)
+				{
+					var option = options[i];
+
+					if (option == null || typeof option != 'object' || Array.isArray(option) ||
+						typeof option.label != 'string' || option.label.trim().length == 0)
+					{
+						throw new Error('Each Select value option for "' + tag +
+							'" must have a non-empty string label and a scalar value');
+					}
+
+					var value = option.value;
+					var valueType = typeof value;
+
+					if (valueType != 'string' && valueType != 'number' && valueType != 'boolean')
+					{
+						throw new Error('Each Select value option for "' + tag +
+							'" must have a string, number, or boolean value');
+					}
+
+					var valueKey = valueType + ':' + String(value);
+
+					if (Object.prototype.hasOwnProperty.call(seenValues, valueKey))
+					{
+						throw new Error('Select value options for "' + tag + '" must have unique values');
+					}
+
+					seenValues[valueKey] = true;
+					parsed.push({label: option.label, value: value});
+				}
+
+				return parsed;
+			};
 
 			for (var i = 0; i < cells.length; i++)
 			{
@@ -117,6 +171,7 @@
 				}
 
 				if (type == 'button' || type == 'outputValue' ||
+					type == 'selectValue' ||
 					type == 'booleanLed' || type == 'inputValue')
 				{
 					var tag = graph.getAttributeForCell(cell, 'tag', '');
@@ -128,10 +183,16 @@
 
 					tags[tag] = true;
 
-					newWidget = {cell: cell, type: type, tag: tag,
+					var newWidget = {cell: cell, type: type, tag: tag,
 						label: graph.getAttributeForCell(cell, 'label', ''),
 						units: graph.getAttributeForCell(cell, 'units', ''),
 						precision: graph.getAttributeForCell(cell, 'precision', '1')};
+
+					if (type == 'selectValue')
+					{
+						newWidget.options = parseSelectOptions(
+							graph.getAttributeForCell(cell, 'options', '[]'), tag);
+					}
 
 					if (type == 'booleanLed')
 					{
@@ -179,8 +240,35 @@
 				return writeTag(widget, parseValue(raw));
 			};
 
+			var renderSelectValue = function(widget, value)
+			{
+				if (widget.select == null || widget.writePending)
+				{
+					return;
+				}
+
+				var selectedValue = '';
+
+				for (var i = 0; i < widget.options.length; i++)
+				{
+					if (widget.options[i].value === value)
+					{
+						selectedValue = String(i);
+						break;
+					}
+				}
+
+				widget.select.value = selectedValue;
+			};
+
 			var renderValue = function(widget, value)
 			{
+				if (widget.type == 'selectValue')
+				{
+					renderSelectValue(widget, value);
+					return;
+				}
+
 				var displayValue = value;
 				var precision = Number(widget.precision);
 
@@ -531,10 +619,151 @@
 				}
 			};
 
+			var bindSelectValueHandlers = function(attempt)
+			{
+				var pending = false;
+
+				for (var i = 0; i < widgets.length; i++)
+				{
+					if (widgets[i].type == 'selectValue')
+					{
+						var state = graph.view.getState(widgets[i].cell);
+
+						if (state != null && state.shape != null && state.shape.node != null)
+						{
+							var node = state.shape.node;
+
+							if (node.getAttribute('data-scada-select-value') != 'true')
+							{
+								(function(widget, node, labelNode)
+								{
+									var bounds = node.getBBox();
+									var foreignObject = document.createElementNS(
+										'http://www.w3.org/2000/svg', 'foreignObject');
+									foreignObject.setAttribute('x', bounds.x);
+									foreignObject.setAttribute('y', bounds.y);
+									foreignObject.setAttribute('width', bounds.width);
+									foreignObject.setAttribute('height', bounds.height);
+									foreignObject.style.display = 'block';
+
+									var select = document.createElementNS(
+										'http://www.w3.org/1999/xhtml', 'select');
+									select.setAttribute('aria-label', widget.label || widget.tag);
+									select.style.cssText = 'box-sizing:border-box;width:100%;height:100%;' +
+										'padding:2px 6px;border:1px solid #6c8ebf;border-radius:3px;' +
+										'background:#fff;color:#222;font:14px sans-serif;text-align:center;';
+
+									var placeholder = document.createElementNS(
+										'http://www.w3.org/1999/xhtml', 'option');
+									placeholder.value = '';
+									placeholder.textContent = 'Select...';
+									placeholder.disabled = true;
+									placeholder.selected = true;
+									select.appendChild(placeholder);
+
+									for (var j = 0; j < widget.options.length; j++)
+									{
+										var option = document.createElementNS(
+											'http://www.w3.org/1999/xhtml', 'option');
+										option.value = String(j);
+										option.textContent = widget.options[j].label;
+										select.appendChild(option);
+									}
+
+									foreignObject.appendChild(select);
+									node.appendChild(foreignObject);
+									widget.select = select;
+									renderSelectValue(widget, widget.value);
+
+									select.addEventListener('pointerdown', function(evt)
+									{
+										evt.stopPropagation();
+									});
+									select.addEventListener('click', function(evt)
+									{
+										evt.stopPropagation();
+									});
+									select.addEventListener('keydown', function(evt)
+									{
+										evt.stopPropagation();
+									});
+									select.addEventListener('keyup', function(evt)
+									{
+										evt.stopPropagation();
+									});
+									select.addEventListener('change', function(evt)
+									{
+										evt.stopPropagation();
+										var selectedIndex = select.selectedIndex - 1;
+										var selectedOption = (selectedIndex >= 0) ?
+											widget.options[selectedIndex] : null;
+
+										if (selectedOption == null)
+										{
+											return;
+										}
+
+										widget.writePending = true;
+										select.disabled = true;
+
+										writeTag(widget, selectedOption.value).then(function()
+										{
+											widget.value = selectedOption.value;
+											widget.writePending = false;
+											select.disabled = false;
+											renderSelectValue(widget, widget.value);
+										}).catch(function(error)
+										{
+											widget.writePending = false;
+											select.disabled = false;
+											renderSelectValue(widget, widget.value);
+											console.error(error);
+											updateStatus(error.message, true);
+										});
+									});
+									node.style.cursor = 'pointer';
+									node.setAttribute('data-scada-select-value', 'true');
+									node.addEventListener('pointerdown', function(evt)
+									{
+										evt.stopPropagation();
+									});
+
+									if (labelNode != null)
+									{
+										labelNode.style.visibility = 'hidden';
+									}
+								})(widgets[i], node,
+									(state.text != null && state.text.node != null) ? state.text.node : null);
+							}
+						}
+						else
+						{
+							pending = true;
+						}
+					}
+				}
+
+				if (pending)
+				{
+					if (attempt < 40)
+					{
+						window.setTimeout(function()
+						{
+							bindSelectValueHandlers(attempt + 1);
+						}, 50);
+					}
+					else
+					{
+						updateStatus('Unable to initialize SCADA select value controls', true);
+					}
+				}
+			};
+
 			window.setTimeout(function()
 			{
 				bindButtonHandlers(0);
 				bindInputValueHandlers(0);
+				bindSelectValueHandlers(0);
 			}, 0);
 
 			var tagList = Object.keys(tags);
@@ -562,7 +791,8 @@
 					{
 						var widget = widgets[i];
 
-						if ((widget.type == 'outputValue' || widget.type == 'inputValue') &&
+						if ((widget.type == 'outputValue' || widget.type == 'inputValue' ||
+							(widget.type == 'selectValue' && !widget.writePending)) &&
 							Object.prototype.hasOwnProperty.call(result.values, widget.tag))
 						{
 							updateValue(widget, result.values[widget.tag]);

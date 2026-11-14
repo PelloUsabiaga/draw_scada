@@ -13,6 +13,7 @@ VALUES: dict[str, object] = {
     "process.temperature": 20.0,
     "process.running": False,
     "process.temperature_setpoint": 25.0,
+    "process.status": "idle",
 }
 VALUES_LOCK = Lock()
 TEMPERATURE_STEP = 1.0
