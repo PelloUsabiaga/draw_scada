@@ -173,7 +173,7 @@
 				if (type == 'button' || type == 'outputValue' ||
 					type == 'selectValue' ||
 					type == 'booleanLed' || type == 'booleanSwitch' ||
-					type == 'inputValue')
+					type == 'barGauge' || type == 'inputValue')
 				{
 					var tag = graph.getAttributeForCell(cell, 'tag', '');
 
@@ -193,6 +193,52 @@
 					{
 						newWidget.options = parseSelectOptions(
 							graph.getAttributeForCell(cell, 'options', '[]'), tag);
+					}
+
+					if (type == 'barGauge')
+					{
+						var minValue = Number(graph.getAttributeForCell(cell, 'min', '0'));
+						var maxValue = Number(graph.getAttributeForCell(cell, 'max', '100'));
+
+						if (!isFinite(minValue) || !isFinite(maxValue) || maxValue <= minValue)
+						{
+							throw new Error('Bar gauge "' + tag +
+								'" requires finite minimum and maximum values with max greater than min');
+						}
+
+						var fillCell = null;
+
+						for (var childIndex = 0; childIndex < model.getChildCount(cell); childIndex++)
+						{
+							var child = model.getChildAt(cell, childIndex);
+
+							if (graph.getAttributeForCell(child, 'scadaGaugePart', null) == 'fill')
+							{
+								if (fillCell != null)
+								{
+									throw new Error('Bar gauge "' + tag + '" has more than one fill rectangle');
+								}
+
+								fillCell = child;
+							}
+						}
+
+						if (fillCell == null)
+						{
+							throw new Error('Bar gauge "' + tag + '" is missing its fill rectangle');
+						}
+
+						var fillGeometry = model.getGeometry(fillCell);
+
+						if (fillGeometry == null || fillGeometry.width <= 0 || fillGeometry.height <= 0)
+						{
+							throw new Error('Bar gauge "' + tag + '" has invalid fill geometry');
+						}
+
+						newWidget.minValue = minValue;
+						newWidget.maxValue = maxValue;
+						newWidget.fillCell = fillCell;
+						newWidget.fillGeometry = fillGeometry.clone();
 					}
 
 					if (type == 'booleanLed' || type == 'booleanSwitch')
@@ -304,6 +350,28 @@
 				if (widget.type != 'inputValue' || !widget.editing)
 				{
 					renderValue(widget, value);
+				}
+			};
+
+			var updateBarGauge = function(widget, value)
+			{
+				if (typeof value != 'number' || !isFinite(value))
+				{
+					throw new Error('Bar gauge tag "' + widget.tag + '" must return a finite number');
+				}
+
+				widget.value = value;
+				var ratio = Math.max(0,
+					Math.min(1, (value - widget.minValue) / (widget.maxValue - widget.minValue)));
+				var geometry = model.getGeometry(widget.fillCell);
+				var fillGeometry = geometry.clone();
+				fillGeometry.height = widget.fillGeometry.height * ratio;
+				fillGeometry.y = widget.fillGeometry.y + widget.fillGeometry.height -
+					fillGeometry.height;
+
+				if (geometry.y != fillGeometry.y || geometry.height != fillGeometry.height)
+				{
+					model.setGeometry(widget.fillCell, fillGeometry);
 				}
 			};
 
@@ -948,6 +1016,11 @@
 							Object.prototype.hasOwnProperty.call(result.values, widget.tag))
 						{
 							updateValue(widget, result.values[widget.tag]);
+						}
+						else if (widget.type == 'barGauge' &&
+							Object.prototype.hasOwnProperty.call(result.values, widget.tag))
+						{
+							updateBarGauge(widget, result.values[widget.tag]);
 						}
 						else if (widget.type == 'booleanLed' &&
 							Object.prototype.hasOwnProperty.call(result.values, widget.tag))

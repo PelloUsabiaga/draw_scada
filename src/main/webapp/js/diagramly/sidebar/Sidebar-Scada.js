@@ -46,7 +46,32 @@
 					options: '[{"label":"Off","value":false},{"label":"On","value":true}]'}),
 			createWidget('booleanSwitch', 'Switch', 80, 44,
 				'rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;',
-				{tag: 'process.running', onColor: '#4caf50', offColor: '#9e9e9e'})
+				{tag: 'process.running', onColor: '#4caf50', offColor: '#9e9e9e'}),
+			this.addEntry('bar gauge process value measurement', mxUtils.bind(this, function()
+			{
+				var xmlDoc = mxUtils.createXmlDocument();
+				var value = xmlDoc.createElement('object');
+				value.setAttribute('label', '');
+				value.setAttribute('scadaType', 'barGauge');
+				value.setAttribute('tag', 'process.temperature');
+				value.setAttribute('min', '0');
+				value.setAttribute('max', '100');
+
+				var gauge = new mxCell(value, new mxGeometry(0, 0, 80, 200),
+					'shape=rect;container=1;collapsible=0;recursiveResize=1;' +
+					'fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;html=1;whiteSpace=wrap;');
+				gauge.vertex = true;
+
+				var fillValue = xmlDoc.createElement('object');
+				fillValue.setAttribute('label', '');
+				fillValue.setAttribute('scadaGaugePart', 'fill');
+				var fill = new mxCell(fillValue, new mxGeometry(8, 8, 64, 184),
+					'shape=rect;fillColor=#4caf50;strokeColor=none;html=1;whiteSpace=wrap;');
+				fill.vertex = true;
+				gauge.insert(fill);
+
+				return this.createVertexTemplateFromCells([gauge], 80, 200, 'Bar gauge');
+			}))
 		]);
 		this.setCurrentSearchEntryLibrary();
 	};

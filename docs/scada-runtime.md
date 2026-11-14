@@ -1,10 +1,10 @@
 # SCADA browser runtime
 
-The editor adds a **More Shapes → Other → SCADA Widgets** library with six
+The editor adds a **More Shapes → Other → SCADA Widgets** library with seven
 controls: **Button**, **Input value**, **Output value**, **Boolean LED**,
-**Select value**, and **Switch**. Select a widget and use the **SCADA** format
-tab to configure its label, tag, write value, units, precision, LED/switch
-colors, or dropdown options.
+**Select value**, **Switch**, and **Bar gauge**. Select a widget and use the
+**SCADA** format tab to configure its label, tag, write value, units, precision,
+LED/switch colors, dropdown options, or gauge range.
 The Boolean LED shows `ON` for `true` and `OFF` for `false`, using its
 configured state colors; non-boolean values show an unknown state.
 Input value is an always-visible text field; its label is used for
@@ -28,6 +28,11 @@ is reported in the runtime status.
 Switch is an animated oval track with a circular knob. It writes the opposite
 boolean value immediately when toggled; its ON and OFF colors are configurable.
 The switch stays disabled until polling returns a boolean for its tag.
+Bar gauge is a vertical pair of editable rectangles. Its **SCADA** tab configures
+the numeric tag and its minimum and maximum values. The fill height tracks the
+tag value from the bottom of the gauge, clamped to that range; style the outer
+and inner rectangles with the regular draw.io shape controls. The tag must
+return a finite JSON number.
 The **Diagram** format tab has a **SCADA Connection** section for file-level
 settings.
 
