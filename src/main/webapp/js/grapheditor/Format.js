@@ -2314,7 +2314,7 @@ ScadaWidgetFormatPanel.prototype.init = function()
 	else if (this.type == 'booleanSwitch')
 	{
 		fields = [
-			{key: 'label', label: 'Accessible label'},
+			{key: 'ariaLabel', label: 'Accessible label'},
 			{key: 'tag', label: 'Boolean variable/tag'},
 			{key: 'onColor', label: 'ON color'},
 			{key: 'offColor', label: 'OFF color'}
@@ -2385,7 +2385,15 @@ ScadaWidgetFormatPanel.prototype.init = function()
 			input.style.resize = 'vertical';
 		}
 
-		input.value = graph.getAttributeForCell(this.cell, field.key, '');
+		var fieldValue = graph.getAttributeForCell(this.cell, field.key, '');
+
+		if (this.type == 'booleanSwitch' && field.key == 'ariaLabel' &&
+			graph.getAttributeForCell(this.cell, 'ariaLabel', null) == null)
+		{
+			fieldValue = graph.getAttributeForCell(this.cell, 'label', '');
+		}
+
+		input.value = fieldValue;
 		input.style.width = 'calc(100% - 10px)';
 		input.setAttribute('aria-label', field.label);
 

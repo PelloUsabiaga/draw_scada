@@ -2,9 +2,9 @@
 
 The editor adds a **More Shapes → Other → SCADA Widgets** library with eight
 controls: **Button**, **Input value**, **Output value**, **Boolean LED**,
-**Select value**, **Switch**, **Bar gauge**, and **Slider**. Select a widget and use the
-**SCADA** format tab to configure its label, tag, write value, units, precision,
-LED/switch colors, dropdown options, or numeric ranges.
+**Select value**, **Switch**, **Bar gauge**, and **Slider**. Select a widget and
+use the **SCADA** format tab to configure its label, tag, write value, units,
+precision, LED/switch colors, dropdown options, or numeric ranges.
 The Boolean LED shows `ON` for `true` and `OFF` for `false`, using its
 configured state colors; non-boolean values show an unknown state.
 Input value is an always-visible text field; its label is used for
@@ -25,15 +25,16 @@ options as a JSON array of unique scalar values with display labels, for example
 Changing the selection immediately writes that typed JSON value to the bound
 tag. The dropdown reflects the value returned by polling; malformed option JSON
 is reported in the runtime status.
-Switch is an animated oval track with a circular knob. It writes the opposite
-boolean value immediately when toggled; its ON and OFF colors are configurable.
-The switch stays disabled until polling returns a boolean for its tag.
-Bar gauge is a pair of editable rectangles. Its **SCADA** tab configures the
-numeric tag and its minimum and maximum values. The fill tracks the tag value
+Switch is a composed, rounded track with a separately editable knob. It writes
+the opposite boolean value immediately when toggled; its ON and OFF track colors
+are configurable. The switch stays disabled until polling returns a boolean for
+its tag. Both parts can be styled with the regular draw.io shape controls.
+Bar gauge is a pair of rounded, editable rectangles. Its **SCADA** tab configures
+the numeric tag and its minimum and maximum values. The fill tracks the tag value
 from the bottom of the gauge, clamped to that range; style the outer and inner
 rectangles with the regular draw.io shape controls. Rotating the gauge also
 rotates the fill direction.
-Slider is a draggable horizontal track with a central knob. Dragging and
+Slider is a draggable horizontal track with a rounded-rectangle knob. Dragging and
 releasing writes a floating-point value within its configured range; keyboard
 arrows adjust it, and Home/End select the range limits. Rotate the slider by 90
 degrees to use it vertically. Slider and gauge tags must return finite JSON

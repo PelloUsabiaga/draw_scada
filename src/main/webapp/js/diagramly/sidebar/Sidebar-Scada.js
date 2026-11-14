@@ -44,9 +44,33 @@
 				'rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;',
 				{tag: 'process.running',
 					options: '[{"label":"Off","value":false},{"label":"On","value":true}]'}),
-			createWidget('booleanSwitch', 'Switch', 80, 44,
-				'rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;',
-				{tag: 'process.running', onColor: '#4caf50', offColor: '#9e9e9e'}),
+			this.addEntry('scada boolean switch', mxUtils.bind(this, function()
+			{
+				var xmlDoc = mxUtils.createXmlDocument();
+				var value = xmlDoc.createElement('object');
+				value.setAttribute('label', '');
+				value.setAttribute('scadaType', 'booleanSwitch');
+				value.setAttribute('tag', 'process.running');
+				value.setAttribute('ariaLabel', 'process.running');
+				value.setAttribute('onColor', '#4caf50');
+				value.setAttribute('offColor', '#9e9e9e');
+
+				var switchCell = new mxCell(value, new mxGeometry(0, 0, 80, 44),
+					'shape=rect;rounded=1;arcSize=50;container=1;collapsible=0;' +
+					'recursiveResize=1;fillColor=#9e9e9e;strokeColor=#666666;' +
+					'strokeWidth=1;html=1;whiteSpace=wrap;');
+				switchCell.vertex = true;
+
+				var knobValue = xmlDoc.createElement('object');
+				knobValue.setAttribute('label', '');
+				knobValue.setAttribute('scadaSwitchPart', 'knob');
+				var knob = new mxCell(knobValue, new mxGeometry(8, 8, 28, 28),
+					'shape=ellipse;fillColor=#ffffff;strokeColor=#666666;strokeWidth=1;');
+				knob.vertex = true;
+				switchCell.insert(knob);
+
+				return this.createVertexTemplateFromCells([switchCell], 80, 44, 'Switch');
+			})),
 			this.addEntry('bar gauge process value measurement', mxUtils.bind(this, function()
 			{
 				var xmlDoc = mxUtils.createXmlDocument();
@@ -58,7 +82,7 @@
 				value.setAttribute('max', '100');
 
 				var gauge = new mxCell(value, new mxGeometry(0, 0, 80, 200),
-					'shape=rect;container=1;collapsible=0;recursiveResize=1;' +
+					'shape=rect;rounded=1;arcSize=20;container=1;collapsible=0;recursiveResize=1;' +
 					'fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;html=1;whiteSpace=wrap;');
 				gauge.vertex = true;
 
@@ -66,7 +90,8 @@
 				fillValue.setAttribute('label', '');
 				fillValue.setAttribute('scadaGaugePart', 'fill');
 				var fill = new mxCell(fillValue, new mxGeometry(8, 8, 64, 184),
-					'shape=rect;fillColor=#4caf50;strokeColor=none;html=1;whiteSpace=wrap;');
+					'shape=rect;rounded=1;arcSize=20;fillColor=#4caf50;' +
+					'strokeColor=none;html=1;whiteSpace=wrap;');
 				fill.vertex = true;
 				gauge.insert(fill);
 
@@ -91,8 +116,9 @@
 				var knobValue = xmlDoc.createElement('object');
 				knobValue.setAttribute('label', '');
 				knobValue.setAttribute('scadaSliderPart', 'knob');
-				var knob = new mxCell(knobValue, new mxGeometry(6, 6, 32, 32),
-					'shape=ellipse;fillColor=#4caf50;strokeColor=#ffffff;strokeWidth=2;');
+				var knob = new mxCell(knobValue, new mxGeometry(0, 4, 24, 36),
+					'shape=rect;rounded=1;arcSize=50;fillColor=#4caf50;' +
+					'strokeColor=#ffffff;strokeWidth=2;');
 				knob.vertex = true;
 				slider.insert(knob);
 

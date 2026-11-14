@@ -344,6 +344,57 @@
 						newWidget.offColor = offColor;
 					}
 
+					if (type == 'booleanSwitch')
+					{
+						newWidget.accessibleLabel = graph.getAttributeForCell(cell,
+							'ariaLabel', newWidget.label || '');
+						var switchKnobCell = null;
+
+						for (var childIndex = 0; childIndex < model.getChildCount(cell); childIndex++)
+						{
+							var child = model.getChildAt(cell, childIndex);
+
+							if (graph.getAttributeForCell(child, 'scadaSwitchPart', null) == 'knob')
+							{
+								if (switchKnobCell != null)
+								{
+									throw new Error('Switch "' + tag + '" has more than one knob');
+								}
+
+								switchKnobCell = child;
+							}
+						}
+
+						if (switchKnobCell != null)
+						{
+							var switchGeometry = model.getGeometry(cell);
+							var switchKnobGeometry = model.getGeometry(switchKnobCell);
+							var switchRotation = Number(graph.getCellStyle(cell)[
+								mxConstants.STYLE_ROTATION] || 0);
+
+							if (switchGeometry == null || !isFinite(switchGeometry.width) ||
+								!isFinite(switchGeometry.height) || switchGeometry.width <= 0 ||
+								switchGeometry.height <= 0 || switchKnobGeometry == null ||
+								!isFinite(switchKnobGeometry.width) ||
+								!isFinite(switchKnobGeometry.height) ||
+								switchKnobGeometry.width <= 0 || switchKnobGeometry.height <= 0 ||
+								!isFinite(switchRotation))
+							{
+								throw new Error('Switch "' + tag + '" has invalid geometry or rotation');
+							}
+
+							var switchCenter = new mxPoint(switchGeometry.width / 2,
+								switchGeometry.height / 2);
+							switchKnobGeometry = switchKnobGeometry.clone();
+							switchKnobGeometry.rotate(-switchRotation, switchCenter);
+							newWidget.switchKnobCell = switchKnobCell;
+							newWidget.switchKnobGeometry = switchKnobGeometry;
+							newWidget.switchGeometry = switchGeometry.clone();
+							newWidget.switchCenter = switchCenter;
+							newWidget.switchRotation = switchRotation;
+						}
+					}
+
 					widgets.push(newWidget);
 				}
 			}
@@ -547,12 +598,62 @@
 			{
 				widget.value = value;
 
+				if (widget.switchKnobCell != null)
+				{
+					var isBoolean = value === true || value === false;
+					var disabled = !isBoolean || !!widget.writePending;
+					var trackColor = (value === true) ? widget.onColor :
+						(value === false) ? widget.offColor : '#bdbdbd';
+
+					if (graph.getCellStyle(widget.cell)[mxConstants.STYLE_FILLCOLOR] != trackColor)
+					{
+						graph.setCellStyles(mxConstants.STYLE_FILLCOLOR, trackColor, [widget.cell]);
+					}
+
+					if (isBoolean)
+					{
+						var geometry = widget.switchKnobGeometry.clone();
+						var offX = widget.switchKnobGeometry.x;
+						geometry.x = (value === true) ?
+							widget.switchGeometry.width - geometry.width - offX : offX;
+						geometry.y = (widget.switchGeometry.height - geometry.height) / 2;
+						geometry.rotate(widget.switchRotation, widget.switchCenter);
+						var currentGeometry = model.getGeometry(widget.switchKnobCell);
+
+						if (currentGeometry.x != geometry.x || currentGeometry.y != geometry.y ||
+							currentGeometry.width != geometry.width ||
+							currentGeometry.height != geometry.height)
+						{
+							model.setGeometry(widget.switchKnobCell, geometry);
+						}
+					}
+
+					if (widget.switchNode != null)
+					{
+						widget.switchNode.setAttribute('aria-checked',
+							isBoolean ? String(value) : 'mixed');
+						widget.switchNode.setAttribute('aria-disabled', String(disabled));
+						widget.switchNode.style.cursor = disabled ? 'not-allowed' : 'pointer';
+						widget.switchNode.style.pointerEvents = disabled ? 'none' : '';
+						widget.switchNode.style.opacity = isBoolean ? '1' : '0.55';
+					}
+
+					if (widget.switchKnobNode != null)
+					{
+						widget.switchKnobNode.style.cursor = disabled ? 'not-allowed' : 'pointer';
+						widget.switchKnobNode.style.pointerEvents = disabled ? 'none' : '';
+						widget.switchKnobNode.style.opacity = isBoolean ? '1' : '0.55';
+					}
+
+					return;
+				}
+
 				if (widget.switchControl == null)
 				{
 					return;
 				}
 
-				var isBoolean = value === true || value === false;
+				isBoolean = value === true || value === false;
 				widget.switchControl.setAttribute('aria-checked',
 					isBoolean ? String(value) : 'mixed');
 				widget.switchControl.disabled = !isBoolean || !!widget.writePending;
@@ -573,7 +674,107 @@
 				{
 					if (widgets[i].type == 'booleanSwitch')
 					{
+						var widget = widgets[i];
 						var state = graph.view.getState(widgets[i].cell);
+
+						if (widget.switchKnobCell != null)
+						{
+							var knobState = graph.view.getState(widget.switchKnobCell);
+
+							if (state != null && state.shape != null && state.shape.node != null &&
+								knobState != null && knobState.shape != null &&
+								knobState.shape.node != null)
+							{
+								var node = state.shape.node;
+								var knobNode = knobState.shape.node;
+
+								if (node.getAttribute('data-scada-boolean-switch') != 'true')
+								{
+									(function(widget, node, knobNode)
+									{
+										widget.switchNode = node;
+										widget.switchKnobNode = knobNode;
+										node.setAttribute('role', 'switch');
+										node.setAttribute('tabindex', '0');
+										node.setAttribute('aria-label',
+											widget.accessibleLabel || widget.tag);
+										node.setAttribute('data-scada-boolean-switch', 'true');
+										knobNode.setAttribute('data-scada-switch-knob', 'true');
+
+										var stopPropagation = function(evt)
+										{
+											evt.stopPropagation();
+										};
+
+										var toggleSwitch = function(evt)
+										{
+											evt.preventDefault();
+											evt.stopPropagation();
+
+											if (typeof widget.value != 'boolean' || widget.writePending)
+											{
+												return;
+											}
+
+											var previousValue = widget.value;
+											var nextValue = !previousValue;
+											widget.writePending = true;
+											updateBooleanSwitch(widget, nextValue);
+
+											writeTag(widget, nextValue).then(function()
+											{
+												widget.writePending = false;
+												updateBooleanSwitch(widget, nextValue);
+											}).catch(function(error)
+											{
+												widget.writePending = false;
+												updateBooleanSwitch(widget, previousValue);
+												console.error(error);
+												updateStatus(error.message, true);
+											});
+										};
+
+										node.addEventListener('pointerdown', stopPropagation);
+										knobNode.addEventListener('pointerdown', stopPropagation);
+										node.addEventListener('mousedown', stopPropagation);
+										knobNode.addEventListener('mousedown', stopPropagation);
+										node.addEventListener('click', toggleSwitch);
+										knobNode.addEventListener('click', toggleSwitch);
+										node.addEventListener('keydown', function(evt)
+										{
+											if (evt.key == 'Enter' || evt.key == ' ')
+											{
+												if (!evt.repeat)
+												{
+													toggleSwitch(evt);
+												}
+												else
+												{
+													evt.preventDefault();
+													evt.stopPropagation();
+												}
+											}
+										});
+										node.addEventListener('keyup', function(evt)
+										{
+											if (evt.key == 'Enter' || evt.key == ' ')
+											{
+												evt.preventDefault();
+												evt.stopPropagation();
+											}
+										});
+
+										updateBooleanSwitch(widget, widget.value);
+									})(widget, node, knobNode);
+								}
+							}
+							else
+							{
+								pending = true;
+							}
+
+							continue;
+						}
 
 						if (state != null && state.shape != null && state.shape.node != null)
 						{
@@ -596,7 +797,8 @@
 										'http://www.w3.org/1999/xhtml', 'button');
 									control.type = 'button';
 									control.setAttribute('role', 'switch');
-									control.setAttribute('aria-label', widget.label || widget.tag);
+									control.setAttribute('aria-label',
+										widget.accessibleLabel || widget.label || widget.tag);
 									control.style.cssText = 'box-sizing:border-box;display:flex;' +
 										'align-items:center;justify-content:center;width:100%;height:100%;' +
 										'padding:0;border:0;background:transparent;';
