@@ -173,7 +173,8 @@
 				if (type == 'button' || type == 'outputValue' ||
 					type == 'selectValue' ||
 					type == 'booleanLed' || type == 'booleanSwitch' ||
-					type == 'barGauge' || type == 'inputValue')
+					type == 'barGauge' || type == 'slider' ||
+					type == 'inputValue')
 				{
 					var tag = graph.getAttributeForCell(cell, 'tag', '');
 
@@ -200,7 +201,8 @@
 						var minValue = Number(graph.getAttributeForCell(cell, 'min', '0'));
 						var maxValue = Number(graph.getAttributeForCell(cell, 'max', '100'));
 
-						if (!isFinite(minValue) || !isFinite(maxValue) || maxValue <= minValue)
+						if (!isFinite(minValue) || !isFinite(maxValue) || maxValue <= minValue ||
+							!isFinite(maxValue - minValue))
 						{
 							throw new Error('Bar gauge "' + tag +
 								'" requires finite minimum and maximum values with max greater than min');
@@ -229,16 +231,109 @@
 						}
 
 						var fillGeometry = model.getGeometry(fillCell);
+						var gaugeGeometry = model.getGeometry(cell);
+						var gaugeRotation = Number(graph.getCellStyle(cell)[
+							mxConstants.STYLE_ROTATION] || 0);
 
-						if (fillGeometry == null || fillGeometry.width <= 0 || fillGeometry.height <= 0)
+						if (fillGeometry == null || !isFinite(fillGeometry.width) ||
+							!isFinite(fillGeometry.height) || fillGeometry.width <= 0 ||
+							fillGeometry.height <= 0 || gaugeGeometry == null ||
+							!isFinite(gaugeGeometry.width) || !isFinite(gaugeGeometry.height) ||
+							!isFinite(gaugeRotation))
 						{
-							throw new Error('Bar gauge "' + tag + '" has invalid fill geometry');
+							throw new Error('Bar gauge "' + tag + '" has invalid geometry or rotation');
 						}
 
+						var gaugeCenter = new mxPoint(gaugeGeometry.width / 2,
+							gaugeGeometry.height / 2);
+						fillGeometry = fillGeometry.clone();
+						fillGeometry.rotate(-gaugeRotation, gaugeCenter);
 						newWidget.minValue = minValue;
 						newWidget.maxValue = maxValue;
 						newWidget.fillCell = fillCell;
-						newWidget.fillGeometry = fillGeometry.clone();
+						newWidget.fillGeometry = fillGeometry;
+						newWidget.gaugeCenter = gaugeCenter;
+						newWidget.rotation = gaugeRotation;
+					}
+
+					if (type == 'slider')
+					{
+						var sliderMin = Number(graph.getAttributeForCell(cell, 'min', '0'));
+						var sliderMax = Number(graph.getAttributeForCell(cell, 'max', '100'));
+
+						if (!isFinite(sliderMin) || !isFinite(sliderMax) ||
+							sliderMax <= sliderMin || !isFinite(sliderMax - sliderMin))
+						{
+							throw new Error('Slider "' + tag +
+								'" requires finite minimum and maximum values with max greater than min');
+						}
+
+						var orientation = graph.getAttributeForCell(cell, 'orientation', 'horizontal');
+
+						if (orientation != 'horizontal' && orientation != 'vertical')
+						{
+							throw new Error('Slider "' + tag + '" orientation must be horizontal or vertical');
+						}
+
+						var knobCell = null;
+
+						for (var childIndex = 0; childIndex < model.getChildCount(cell); childIndex++)
+						{
+							var child = model.getChildAt(cell, childIndex);
+
+							if (graph.getAttributeForCell(child, 'scadaSliderPart', null) == 'knob')
+							{
+								if (knobCell != null)
+								{
+									throw new Error('Slider "' + tag + '" has more than one knob');
+								}
+
+								knobCell = child;
+							}
+						}
+
+						if (knobCell == null)
+						{
+							throw new Error('Slider "' + tag + '" is missing its knob');
+						}
+
+						var sliderGeometry = model.getGeometry(cell);
+						var knobGeometry = model.getGeometry(knobCell);
+						var sliderRotation = Number(graph.getCellStyle(cell)[
+							mxConstants.STYLE_ROTATION] || 0);
+
+						if (sliderGeometry == null || !isFinite(sliderGeometry.width) ||
+							!isFinite(sliderGeometry.height) || sliderGeometry.width <= 0 ||
+							sliderGeometry.height <= 0 || knobGeometry == null ||
+							!isFinite(knobGeometry.width) || !isFinite(knobGeometry.height) ||
+							knobGeometry.width <= 0 || knobGeometry.height <= 0 ||
+							!isFinite(sliderRotation))
+						{
+							throw new Error('Slider "' + tag + '" has invalid geometry or rotation');
+						}
+
+						var sliderTravel = (orientation == 'horizontal') ?
+							sliderGeometry.width - knobGeometry.width :
+							sliderGeometry.height - knobGeometry.height;
+
+						if (sliderTravel <= 0)
+						{
+							throw new Error('Slider "' + tag + '" track must be larger than its knob');
+						}
+
+						var sliderCenter = new mxPoint(sliderGeometry.width / 2,
+							sliderGeometry.height / 2);
+						knobGeometry = knobGeometry.clone();
+						knobGeometry.rotate(-sliderRotation, sliderCenter);
+						newWidget.minValue = sliderMin;
+						newWidget.maxValue = sliderMax;
+						newWidget.orientation = orientation;
+						newWidget.knobCell = knobCell;
+						newWidget.knobGeometry = knobGeometry;
+						newWidget.sliderGeometry = sliderGeometry.clone();
+						newWidget.sliderCenter = sliderCenter;
+						newWidget.rotation = sliderRotation;
+						newWidget.value = sliderMin;
 					}
 
 					if (type == 'booleanLed' || type == 'booleanSwitch')
@@ -364,14 +459,70 @@
 				var ratio = Math.max(0,
 					Math.min(1, (value - widget.minValue) / (widget.maxValue - widget.minValue)));
 				var geometry = model.getGeometry(widget.fillCell);
-				var fillGeometry = geometry.clone();
+				var fillGeometry = widget.fillGeometry.clone();
 				fillGeometry.height = widget.fillGeometry.height * ratio;
 				fillGeometry.y = widget.fillGeometry.y + widget.fillGeometry.height -
 					fillGeometry.height;
+				fillGeometry.rotate(widget.rotation, widget.gaugeCenter);
 
-				if (geometry.y != fillGeometry.y || geometry.height != fillGeometry.height)
+				if (geometry.x != fillGeometry.x || geometry.y != fillGeometry.y ||
+					geometry.width != fillGeometry.width || geometry.height != fillGeometry.height)
 				{
 					model.setGeometry(widget.fillCell, fillGeometry);
+				}
+			};
+
+			var updateSlider = function(widget, value)
+			{
+				if (typeof value != 'number' || !isFinite(value))
+				{
+					throw new Error('Slider tag "' + widget.tag + '" must return a finite number');
+				}
+
+				value = Math.max(widget.minValue, Math.min(widget.maxValue, value));
+				var ratio = (value - widget.minValue) / (widget.maxValue - widget.minValue);
+				var geometry = widget.knobGeometry.clone();
+
+				if (widget.orientation == 'horizontal')
+				{
+					geometry.x = geometry.width / 2 +
+						(widget.sliderGeometry.width - geometry.width) * ratio - geometry.width / 2;
+					geometry.y = (widget.sliderGeometry.height - geometry.height) / 2;
+				}
+				else
+				{
+					geometry.x = (widget.sliderGeometry.width - geometry.width) / 2;
+					geometry.y = widget.sliderGeometry.height - geometry.height / 2 -
+						(widget.sliderGeometry.height - geometry.height) * ratio - geometry.height / 2;
+				}
+
+				geometry.rotate(widget.rotation, widget.sliderCenter);
+				var currentGeometry = model.getGeometry(widget.knobCell);
+
+				if (currentGeometry.x != geometry.x || currentGeometry.y != geometry.y ||
+					currentGeometry.width != geometry.width ||
+					currentGeometry.height != geometry.height)
+				{
+					model.setGeometry(widget.knobCell, geometry);
+				}
+
+				widget.value = value;
+
+				if (widget.sliderNode != null)
+				{
+					var radians = mxUtils.toRadians(widget.rotation);
+					var isVertical = (widget.orientation == 'vertical') ?
+						Math.abs(Math.cos(radians)) > Math.abs(Math.sin(radians)) :
+						Math.abs(Math.sin(radians)) > Math.abs(Math.cos(radians));
+					widget.sliderNode.setAttribute('aria-orientation',
+						isVertical ? 'vertical' : 'horizontal');
+					widget.sliderNode.setAttribute('aria-valuenow', String(value));
+					widget.sliderNode.style.cursor = isVertical ? 'ns-resize' : 'ew-resize';
+
+					if (widget.sliderKnobNode != null)
+					{
+						widget.sliderKnobNode.style.cursor = widget.sliderNode.style.cursor;
+					}
 				}
 			};
 
@@ -978,12 +1129,288 @@
 				}
 			};
 
+			var sliderValueFromEvent = function(widget, evt)
+			{
+				var ctm = widget.sliderNode.getScreenCTM();
+				var svg = widget.sliderNode.ownerSVGElement;
+
+				if (ctm == null || svg == null)
+				{
+					throw new Error('Unable to map slider pointer to diagram coordinates');
+				}
+
+				var point = svg.createSVGPoint();
+				point.x = mxEvent.getClientX(evt);
+				point.y = mxEvent.getClientY(evt);
+				point = point.matrixTransform(ctm.inverse());
+
+				var bounds = widget.sliderNode.getBBox();
+				var horizontal = widget.orientation == 'horizontal';
+				var axis = horizontal ? point.x : point.y;
+				var boundsStart = horizontal ? bounds.x : bounds.y;
+				var trackSize = horizontal ? bounds.width : bounds.height;
+				var modelTrackSize = horizontal ?
+					widget.sliderGeometry.width : widget.sliderGeometry.height;
+				var modelKnobSize = horizontal ?
+					widget.knobGeometry.width : widget.knobGeometry.height;
+				var knobSize = trackSize * modelKnobSize / modelTrackSize;
+				var travel = trackSize - knobSize;
+				var ratio = (axis - boundsStart - knobSize / 2) / travel;
+
+				if (!isFinite(ratio))
+				{
+					throw new Error('Slider "' + widget.tag + '" has invalid pointer geometry');
+				}
+
+				if (!horizontal)
+				{
+					ratio = 1 - ratio;
+				}
+
+				ratio = Math.max(0, Math.min(1, ratio));
+
+				return widget.minValue + ratio * (widget.maxValue - widget.minValue);
+			};
+
+			var commitSlider = function(widget, previousValue)
+			{
+				if (widget.value === previousValue || widget.writePending)
+				{
+					return;
+				}
+
+				var value = widget.value;
+				widget.writePending = true;
+
+				writeTag(widget, value).then(function()
+				{
+					widget.writePending = false;
+				}).catch(function(error)
+				{
+					widget.writePending = false;
+					updateSlider(widget, previousValue);
+					console.error(error);
+					updateStatus(error.message, true);
+				});
+			};
+
+			var bindSliderHandlers = function(attempt)
+			{
+				var pending = false;
+
+				for (var i = 0; i < widgets.length; i++)
+				{
+					if (widgets[i].type == 'slider')
+					{
+						var state = graph.view.getState(widgets[i].cell);
+						var knobState = graph.view.getState(widgets[i].knobCell);
+
+						if (state != null && state.shape != null && state.shape.node != null &&
+							knobState != null && knobState.shape != null &&
+							knobState.shape.node != null)
+						{
+							var node = state.shape.node;
+							var knobNode = knobState.shape.node;
+
+							if (node.getAttribute('data-scada-slider') != 'true')
+							{
+								(function(widget, node, knobNode)
+								{
+									widget.sliderNode = node;
+									widget.sliderKnobNode = knobNode;
+									node.style.cursor = 'ew-resize';
+									knobNode.style.cursor = 'ew-resize';
+									node.style.touchAction = 'none';
+									knobNode.style.touchAction = 'none';
+									node.style.userSelect = 'none';
+									knobNode.style.userSelect = 'none';
+									node.setAttribute('role', 'slider');
+									node.setAttribute('tabindex', '0');
+									node.setAttribute('aria-label', widget.label || widget.tag);
+									node.setAttribute('aria-valuemin', String(widget.minValue));
+									node.setAttribute('aria-valuemax', String(widget.maxValue));
+									node.setAttribute('data-scada-slider', 'true');
+									knobNode.setAttribute('data-scada-slider-knob', 'true');
+									updateSlider(widget, widget.value);
+
+									var stopPropagation = function(evt)
+									{
+										evt.stopPropagation();
+									};
+
+									var relevantKey = function(key)
+									{
+										return key == 'ArrowLeft' || key == 'ArrowDown' ||
+											key == 'ArrowRight' || key == 'ArrowUp' ||
+											key == 'Home' || key == 'End';
+									};
+
+									var setValueFromPointer = function(evt)
+									{
+										try
+										{
+											updateSlider(widget, sliderValueFromEvent(widget, evt));
+										}
+										catch (error)
+										{
+											widget.dragging = false;
+											widget.pointerId = null;
+											console.error(error);
+											updateStatus(error.message, true);
+										}
+									};
+
+									var finishKeyboardChange = function()
+									{
+										if (widget.keyboardChanging)
+										{
+											widget.keyboardChanging = false;
+											commitSlider(widget, widget.keyboardPreviousValue);
+										}
+									};
+
+									node.addEventListener('keydown', function(evt)
+									{
+										if (!relevantKey(evt.key) || widget.writePending ||
+											widget.dragging)
+										{
+											return;
+										}
+
+										evt.preventDefault();
+										evt.stopPropagation();
+
+										if (!widget.keyboardChanging)
+										{
+											widget.keyboardPreviousValue = widget.value;
+											widget.keyboardChanging = true;
+										}
+
+										var nextValue = widget.value;
+										var step = (widget.maxValue - widget.minValue) / 100;
+
+										if (evt.key == 'Home')
+										{
+											nextValue = widget.minValue;
+										}
+										else if (evt.key == 'End')
+										{
+											nextValue = widget.maxValue;
+										}
+										else if (evt.key == 'ArrowRight' || evt.key == 'ArrowUp')
+										{
+											nextValue += step;
+										}
+										else
+										{
+											nextValue -= step;
+										}
+
+										updateSlider(widget, nextValue);
+									});
+
+									node.addEventListener('keyup', function(evt)
+									{
+										if (relevantKey(evt.key))
+										{
+											evt.stopPropagation();
+											finishKeyboardChange();
+										}
+									});
+									node.addEventListener('blur', finishKeyboardChange);
+									node.addEventListener('click', stopPropagation);
+									var startDrag = function(evt)
+									{
+										if (evt.button != 0 || widget.writePending ||
+											widget.dragging || widget.keyboardChanging)
+										{
+											return;
+										}
+
+										evt.preventDefault();
+										evt.stopPropagation();
+										widget.dragging = true;
+										widget.pointerId = evt.pointerId;
+										widget.dragPreviousValue = widget.value;
+										setValueFromPointer(evt);
+									};
+									node.addEventListener('pointerdown', startDrag);
+									knobNode.addEventListener('pointerdown', startDrag);
+									knobNode.addEventListener('click', stopPropagation);
+
+									document.addEventListener('pointermove', function(evt)
+									{
+										if (widget.dragging && widget.pointerId == evt.pointerId)
+										{
+											evt.preventDefault();
+											evt.stopPropagation();
+											setValueFromPointer(evt);
+										}
+									}, true);
+
+									var endDrag = function(evt, cancelled)
+									{
+										if (!widget.dragging || widget.pointerId != evt.pointerId)
+										{
+											return;
+										}
+
+										evt.preventDefault();
+										evt.stopPropagation();
+										widget.dragging = false;
+										widget.pointerId = null;
+
+										if (cancelled)
+										{
+											updateSlider(widget, widget.dragPreviousValue);
+										}
+										else
+										{
+											commitSlider(widget, widget.dragPreviousValue);
+										}
+									};
+
+									document.addEventListener('pointerup', function(evt)
+									{
+										endDrag(evt, false);
+									}, true);
+									document.addEventListener('pointercancel', function(evt)
+									{
+										endDrag(evt, true);
+									}, true);
+								})(widgets[i], node, knobNode);
+							}
+						}
+						else
+						{
+							pending = true;
+						}
+					}
+				}
+
+				if (pending)
+				{
+					if (attempt < 40)
+					{
+						window.setTimeout(function()
+						{
+							bindSliderHandlers(attempt + 1);
+						}, 50);
+					}
+					else
+					{
+						updateStatus('Unable to initialize SCADA slider controls', true);
+					}
+				}
+			};
+
 			window.setTimeout(function()
 			{
 				bindButtonHandlers(0);
 				bindInputValueHandlers(0);
 				bindSelectValueHandlers(0);
 				bindBooleanSwitchHandlers(0);
+				bindSliderHandlers(0);
 			}, 0);
 
 			var tagList = Object.keys(tags);
@@ -1016,6 +1443,12 @@
 							Object.prototype.hasOwnProperty.call(result.values, widget.tag))
 						{
 							updateValue(widget, result.values[widget.tag]);
+						}
+						else if (widget.type == 'slider' && !widget.dragging &&
+							!widget.keyboardChanging && !widget.writePending &&
+							Object.prototype.hasOwnProperty.call(result.values, widget.tag))
+						{
+							updateSlider(widget, result.values[widget.tag]);
 						}
 						else if (widget.type == 'barGauge' &&
 							Object.prototype.hasOwnProperty.call(result.values, widget.tag))

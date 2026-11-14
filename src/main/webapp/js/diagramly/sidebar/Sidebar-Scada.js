@@ -71,6 +71,32 @@
 				gauge.insert(fill);
 
 				return this.createVertexTemplateFromCells([gauge], 80, 200, 'Bar gauge');
+			})),
+			this.addEntry('slider numeric value control', mxUtils.bind(this, function()
+			{
+				var xmlDoc = mxUtils.createXmlDocument();
+				var value = xmlDoc.createElement('object');
+				value.setAttribute('label', '');
+				value.setAttribute('scadaType', 'slider');
+				value.setAttribute('tag', 'process.temperature');
+				value.setAttribute('min', '0');
+				value.setAttribute('max', '100');
+				value.setAttribute('orientation', 'horizontal');
+
+				var slider = new mxCell(value, new mxGeometry(0, 0, 200, 44),
+					'shape=rect;rounded=1;container=1;collapsible=0;recursiveResize=1;' +
+					'fillColor=#e6e6e6;strokeColor=#666666;strokeWidth=1;html=1;whiteSpace=wrap;');
+				slider.vertex = true;
+
+				var knobValue = xmlDoc.createElement('object');
+				knobValue.setAttribute('label', '');
+				knobValue.setAttribute('scadaSliderPart', 'knob');
+				var knob = new mxCell(knobValue, new mxGeometry(6, 6, 32, 32),
+					'shape=ellipse;fillColor=#4caf50;strokeColor=#ffffff;strokeWidth=2;');
+				knob.vertex = true;
+				slider.insert(knob);
+
+				return this.createVertexTemplateFromCells([slider], 200, 44, 'Slider');
 			}))
 		]);
 		this.setCurrentSearchEntryLibrary();
