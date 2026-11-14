@@ -474,7 +474,8 @@ Format.prototype.immediateRefresh = function()
 
 		if (scadaType == 'button' || scadaType == 'outputValue' ||
 			scadaType == 'selectValue' ||
-			scadaType == 'booleanLed' || scadaType == 'inputValue')
+			scadaType == 'booleanLed' || scadaType == 'booleanSwitch' ||
+			scadaType == 'inputValue')
 		{
 			var scadaLabel = label.cloneNode(false);
 			var scadaTitle = document.createElement('div');
@@ -2309,6 +2310,15 @@ ScadaWidgetFormatPanel.prototype.init = function()
 			{key: 'offColor', label: 'OFF color'}
 		];
 	}
+	else if (this.type == 'booleanSwitch')
+	{
+		fields = [
+			{key: 'label', label: 'Accessible label'},
+			{key: 'tag', label: 'Boolean variable/tag'},
+			{key: 'onColor', label: 'ON color'},
+			{key: 'offColor', label: 'OFF color'}
+		];
+	}
 	else if (this.type == 'selectValue')
 	{
 		fields = [
@@ -2328,6 +2338,7 @@ ScadaWidgetFormatPanel.prototype.init = function()
 		(this.type == 'inputValue') ? 'Input value' :
 		(this.type == 'outputValue') ? 'Output value' :
 		(this.type == 'selectValue') ? 'Select value' :
+		(this.type == 'booleanSwitch') ? 'Switch' :
 		(this.type == 'booleanLed') ? 'Boolean LED' : 'SCADA Widget';
 	this.container.appendChild(this.createTitle(title));
 

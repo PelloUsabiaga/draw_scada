@@ -1,9 +1,10 @@
 # SCADA browser runtime
 
-The editor adds a **More Shapes → Other → SCADA Widgets** library with five
-controls: **Button**, **Input value**, **Output value**, **Boolean LED**, and
-**Select value**. Select a widget and use the **SCADA** format tab to configure
-its label, tag, write value, units, precision, LED colors, or dropdown options.
+The editor adds a **More Shapes → Other → SCADA Widgets** library with six
+controls: **Button**, **Input value**, **Output value**, **Boolean LED**,
+**Select value**, and **Switch**. Select a widget and use the **SCADA** format
+tab to configure its label, tag, write value, units, precision, LED/switch
+colors, or dropdown options.
 The Boolean LED shows `ON` for `true` and `OFF` for `false`, using its
 configured state colors; non-boolean values show an unknown state.
 Input value is an always-visible text field; its label is used for
@@ -24,6 +25,9 @@ options as a JSON array of unique scalar values with display labels, for example
 Changing the selection immediately writes that typed JSON value to the bound
 tag. The dropdown reflects the value returned by polling; malformed option JSON
 is reported in the runtime status.
+Switch is an animated oval track with a circular knob. It writes the opposite
+boolean value immediately when toggled; its ON and OFF colors are configurable.
+The switch stays disabled until polling returns a boolean for its tag.
 The **Diagram** format tab has a **SCADA Connection** section for file-level
 settings.
 

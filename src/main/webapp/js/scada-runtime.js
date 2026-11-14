@@ -172,7 +172,8 @@
 
 				if (type == 'button' || type == 'outputValue' ||
 					type == 'selectValue' ||
-					type == 'booleanLed' || type == 'inputValue')
+					type == 'booleanLed' || type == 'booleanSwitch' ||
+					type == 'inputValue')
 				{
 					var tag = graph.getAttributeForCell(cell, 'tag', '');
 
@@ -194,7 +195,7 @@
 							graph.getAttributeForCell(cell, 'options', '[]'), tag);
 					}
 
-					if (type == 'booleanLed')
+					if (type == 'booleanLed' || type == 'booleanSwitch')
 					{
 						var onColor = graph.getAttributeForCell(cell, 'onColor', '#d5e8d4');
 						var offColor = graph.getAttributeForCell(cell, 'offColor', '#f5f5f5');
@@ -321,6 +322,156 @@
 				graph.setCellStyles(mxConstants.STYLE_FILLCOLOR, fillColor, [widget.cell]);
 				graph.cellLabelChanged(widget.cell,
 					(widget.label ? widget.label + ': ' : '') + stateLabel, false);
+			};
+
+			var updateBooleanSwitch = function(widget, value)
+			{
+				widget.value = value;
+
+				if (widget.switchControl == null)
+				{
+					return;
+				}
+
+				var isBoolean = value === true || value === false;
+				widget.switchControl.setAttribute('aria-checked',
+					isBoolean ? String(value) : 'mixed');
+				widget.switchControl.disabled = !isBoolean || !!widget.writePending;
+				widget.switchControl.style.cursor = widget.switchControl.disabled ?
+					'not-allowed' : 'pointer';
+				widget.switchControl.style.opacity = isBoolean ? '1' : '0.55';
+				widget.switchTrack.style.backgroundColor = (value === true) ? widget.onColor :
+					(value === false) ? widget.offColor : '#bdbdbd';
+				widget.switchKnob.style.transform = (value === true) ?
+					'translateX(30px)' : 'translateX(0)';
+			};
+
+			var bindBooleanSwitchHandlers = function(attempt)
+			{
+				var pending = false;
+
+				for (var i = 0; i < widgets.length; i++)
+				{
+					if (widgets[i].type == 'booleanSwitch')
+					{
+						var state = graph.view.getState(widgets[i].cell);
+
+						if (state != null && state.shape != null && state.shape.node != null)
+						{
+							var node = state.shape.node;
+
+							if (node.getAttribute('data-scada-boolean-switch') != 'true')
+							{
+								(function(widget, node, labelNode)
+								{
+									var bounds = node.getBBox();
+									var foreignObject = document.createElementNS(
+										'http://www.w3.org/2000/svg', 'foreignObject');
+									foreignObject.setAttribute('x', bounds.x);
+									foreignObject.setAttribute('y', bounds.y);
+									foreignObject.setAttribute('width', bounds.width);
+									foreignObject.setAttribute('height', bounds.height);
+									foreignObject.style.display = 'block';
+
+									var control = document.createElementNS(
+										'http://www.w3.org/1999/xhtml', 'button');
+									control.type = 'button';
+									control.setAttribute('role', 'switch');
+									control.setAttribute('aria-label', widget.label || widget.tag);
+									control.style.cssText = 'box-sizing:border-box;display:flex;' +
+										'align-items:center;justify-content:center;width:100%;height:100%;' +
+										'padding:0;border:0;background:transparent;';
+
+									var track = document.createElementNS(
+										'http://www.w3.org/1999/xhtml', 'span');
+									track.style.cssText = 'position:relative;display:block;width:64px;' +
+										'height:34px;border-radius:999px;transition:background-color 180ms ease;';
+
+									var knob = document.createElementNS(
+										'http://www.w3.org/1999/xhtml', 'span');
+									knob.style.cssText = 'position:absolute;left:3px;top:3px;width:28px;' +
+										'height:28px;border-radius:50%;background:#fff;' +
+										'box-shadow:0 1px 3px rgba(0,0,0,0.35);' +
+										'transition:transform 180ms ease;';
+									track.appendChild(knob);
+									control.appendChild(track);
+									foreignObject.appendChild(control);
+									node.appendChild(foreignObject);
+
+									widget.switchControl = control;
+									widget.switchTrack = track;
+									widget.switchKnob = knob;
+									updateBooleanSwitch(widget, widget.value);
+
+									var stopPropagation = function(evt)
+									{
+										evt.stopPropagation();
+									};
+
+									control.addEventListener('pointerdown', stopPropagation);
+									control.addEventListener('mousedown', stopPropagation);
+									control.addEventListener('keydown', stopPropagation);
+									control.addEventListener('keyup', stopPropagation);
+									control.addEventListener('click', function(evt)
+									{
+										evt.stopPropagation();
+
+										if (typeof widget.value != 'boolean' || widget.writePending)
+										{
+											return;
+										}
+
+										var previousValue = widget.value;
+										var nextValue = !previousValue;
+										widget.writePending = true;
+										updateBooleanSwitch(widget, nextValue);
+
+										writeTag(widget, nextValue).then(function()
+										{
+											widget.writePending = false;
+											updateBooleanSwitch(widget, nextValue);
+										}).catch(function(error)
+										{
+											widget.writePending = false;
+											updateBooleanSwitch(widget, previousValue);
+											console.error(error);
+											updateStatus(error.message, true);
+										});
+									});
+
+									node.style.cursor = 'pointer';
+									node.setAttribute('data-scada-boolean-switch', 'true');
+									node.addEventListener('pointerdown', stopPropagation);
+
+									if (labelNode != null)
+									{
+										labelNode.style.visibility = 'hidden';
+									}
+								})(widgets[i], node,
+									(state.text != null && state.text.node != null) ? state.text.node : null);
+							}
+						}
+						else
+						{
+							pending = true;
+						}
+					}
+				}
+
+				if (pending)
+				{
+					if (attempt < 40)
+					{
+						window.setTimeout(function()
+						{
+							bindBooleanSwitchHandlers(attempt + 1);
+						}, 50);
+					}
+					else
+					{
+						updateStatus('Unable to initialize SCADA switch controls', true);
+					}
+				}
 			};
 
 			var bindButtonHandlers = function(attempt)
@@ -764,6 +915,7 @@
 				bindButtonHandlers(0);
 				bindInputValueHandlers(0);
 				bindSelectValueHandlers(0);
+				bindBooleanSwitchHandlers(0);
 			}, 0);
 
 			var tagList = Object.keys(tags);
@@ -801,6 +953,11 @@
 							Object.prototype.hasOwnProperty.call(result.values, widget.tag))
 						{
 							updateBooleanLed(widget, result.values[widget.tag]);
+						}
+						else if (widget.type == 'booleanSwitch' && !widget.writePending &&
+							Object.prototype.hasOwnProperty.call(result.values, widget.tag))
+						{
+							updateBooleanSwitch(widget, result.values[widget.tag]);
 						}
 					}
 

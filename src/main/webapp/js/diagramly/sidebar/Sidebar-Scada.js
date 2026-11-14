@@ -43,7 +43,10 @@
 			createWidget('selectValue', 'Select value', 160, 50,
 				'rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;',
 				{tag: 'process.running',
-					options: '[{"label":"Off","value":false},{"label":"On","value":true}]'})
+					options: '[{"label":"Off","value":false},{"label":"On","value":true}]'}),
+			createWidget('booleanSwitch', 'Switch', 80, 44,
+				'rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;',
+				{tag: 'process.running', onColor: '#4caf50', offColor: '#9e9e9e'})
 		]);
 		this.setCurrentSearchEntryLibrary();
 	};
