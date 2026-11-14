@@ -1,13 +1,14 @@
 # SCADA browser runtime
 
-The editor adds a **More Shapes → Other → SCADA Widgets** library with a write
-button, a variable display, a boolean indicator, and an editable value field.
+The editor adds a **More Shapes → Other → SCADA Widgets** library with four
+controls: **Button**, **Input value**, **Output value**, and **Boolean LED**.
 Select a widget and use the **SCADA** format tab to configure its label, tag,
-write value, display units, or precision. The indicator shows `ON`/green for
-`true`, `OFF`/gray for `false`, and an unknown state for non-boolean values.
-The value editor is shown as an always-visible text input; its diagram label is
-hidden and is used as the input's accessible label. It commits its value on
-Enter or when focus leaves the field; Escape cancels the edit.
+write value, units, precision, or LED colors. The Boolean LED shows `ON` for
+`true` and `OFF` for `false`, using its configured state colors; non-boolean
+values show an unknown state.
+Input value is an always-visible text field; its label is used for
+accessibility. It commits its value on Enter or when focus leaves the field;
+Escape cancels the edit.
 The **Diagram** format tab has a **SCADA Connection** section for file-level
 settings.
 

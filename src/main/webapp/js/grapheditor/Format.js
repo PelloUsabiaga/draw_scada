@@ -8,6 +8,24 @@ Format = function(editorUi, container)
 	this.collapsedSections = editorUi.getCollapsedSections();
 };
 
+Format.normalizeScadaType = function(type)
+{
+	if (type == 'display')
+	{
+		return 'outputValue';
+	}
+	else if (type == 'indicator')
+	{
+		return 'booleanLed';
+	}
+	else if (type == 'valueEditor')
+	{
+		return 'inputValue';
+	}
+
+	return type;
+};
+
 /**
  * Icons for markers (24x16).
  */
@@ -452,9 +470,10 @@ Format.prototype.immediateRefresh = function()
 		var scadaValue = (scadaCell != null) ? graph.getModel().getValue(scadaCell) : null;
 		var scadaType = (scadaValue != null && typeof scadaValue == 'object') ?
 			scadaValue.getAttribute('scadaType') : null;
+		scadaType = Format.normalizeScadaType(scadaType);
 
-		if (scadaType == 'button' || scadaType == 'display' ||
-			scadaType == 'indicator' || scadaType == 'valueEditor')
+		if (scadaType == 'button' || scadaType == 'outputValue' ||
+			scadaType == 'booleanLed' || scadaType == 'inputValue')
 		{
 			var scadaLabel = label.cloneNode(false);
 			var scadaTitle = document.createElement('div');
@@ -2264,7 +2283,7 @@ ScadaWidgetFormatPanel = function(format, editorUi, container, cell, type)
 {
 	BaseFormatPanel.call(this, format, editorUi, container);
 	this.cell = cell;
-	this.type = type;
+	this.type = Format.normalizeScadaType(type);
 	this.init();
 };
 
@@ -2280,23 +2299,27 @@ ScadaWidgetFormatPanel.prototype.init = function()
 		fields = [{key: 'label', label: 'Button label'}, {key: 'tag', label: 'Variable/tag'},
 			{key: 'writeValue', label: 'Value to write (JSON)'}];
 	}
-	else if (this.type == 'indicator')
+	else if (this.type == 'booleanLed')
 	{
 		fields = [
-			{key: 'label', label: 'Indicator label'}, 
+			{key: 'label', label: 'Boolean LED label'},
 			{key: 'tag', label: 'Boolean variable/tag'},
-			{key: 'onColor', label: 'On Color'},
-			{key: 'offColor', label: 'Off Color'}
+			{key: 'onColor', label: 'ON color'},
+			{key: 'offColor', label: 'OFF color'}
 		];
 	}
 	else
 	{
-		fields = [{key: 'label', label: (this.type == 'valueEditor') ? 'Accessible label' : 'Display caption'},
+		fields = [{key: 'label', label: (this.type == 'inputValue') ? 'Accessible label' : 'Output value label'},
 			{key: 'tag', label: 'Variable/tag'},
 			{key: 'units', label: 'Units'}, {key: 'precision', label: 'Decimal places', type: 'number'}];
 	}
 
-	this.container.appendChild(this.createTitle('SCADA Widget'));
+	var title = (this.type == 'button') ? 'Button' :
+		(this.type == 'inputValue') ? 'Input value' :
+		(this.type == 'outputValue') ? 'Output value' :
+		(this.type == 'booleanLed') ? 'Boolean LED' : 'SCADA Widget';
+	this.container.appendChild(this.createTitle(title));
 
 	for (var i = 0; i < fields.length; i++)
 	{

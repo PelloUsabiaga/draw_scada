@@ -102,10 +102,22 @@
 			{
 				var cell = cells[i];
 				var type = graph.getAttributeForCell(cell, 'scadaType', null);
-				
 
-				if (type == 'button' || type == 'display' || type == 'indicator' ||
-					type == 'valueEditor')
+				if (type == 'display')
+				{
+					type = 'outputValue';
+				}
+				else if (type == 'indicator')
+				{
+					type = 'booleanLed';
+				}
+				else if (type == 'valueEditor')
+				{
+					type = 'inputValue';
+				}
+
+				if (type == 'button' || type == 'outputValue' ||
+					type == 'booleanLed' || type == 'inputValue')
 				{
 					var tag = graph.getAttributeForCell(cell, 'tag', '');
 
@@ -121,7 +133,7 @@
 						units: graph.getAttributeForCell(cell, 'units', ''),
 						precision: graph.getAttributeForCell(cell, 'precision', '1')};
 
-					if (type == 'indicator')
+					if (type == 'booleanLed')
 					{
 						var onColor = graph.getAttributeForCell(cell, 'onColor', '#d5e8d4');
 						var offColor = graph.getAttributeForCell(cell, 'offColor', '#f5f5f5');
@@ -180,7 +192,7 @@
 
 				var valueText = (displayValue == null) ? '-' : String(displayValue);
 
-				if (widget.type == 'valueEditor')
+				if (widget.type == 'inputValue')
 				{
 					if (widget.input != null && !widget.editing)
 					{
@@ -200,21 +212,21 @@
 			{
 				widget.value = value;
 
-				if (widget.type != 'valueEditor' || !widget.editing)
+				if (widget.type != 'inputValue' || !widget.editing)
 				{
 					renderValue(widget, value);
 				}
 			};
 
-			var updateIndicator = function(widget, value)
+			var updateBooleanLed = function(widget, value)
 			{
-				if (widget.indicatorInitialized && widget.indicatorValue === value)
+				if (widget.booleanLedInitialized && widget.booleanLedValue === value)
 				{
 					return;
 				}
 
-				widget.indicatorInitialized = true;
-				widget.indicatorValue = value;
+				widget.booleanLedInitialized = true;
+				widget.booleanLedValue = value;
 				var stateLabel = (value === true) ? 'ON' : (value === false) ? 'OFF' : '—';
 				var fillColor = (value === true) ? widget.onColor :
     				(value === false) ? widget.offColor : '#fff2cc';
@@ -365,13 +377,13 @@
 				}
 			};
 
-			var bindValueEditorHandlers = function(attempt)
+			var bindInputValueHandlers = function(attempt)
 			{
 				var pending = false;
 
 				for (var i = 0; i < widgets.length; i++)
 				{
-					if (widgets[i].type == 'valueEditor')
+					if (widgets[i].type == 'inputValue')
 					{
 						var state = graph.view.getState(widgets[i].cell);
 
@@ -379,7 +391,7 @@
 						{
 							var node = state.shape.node;
 
-							if (node.getAttribute('data-scada-value-editor') != 'true')
+							if (node.getAttribute('data-scada-input-value') != 'true')
 							{
 								(function(widget, node, labelNode)
 								{
@@ -482,7 +494,7 @@
 									});
 									input.addEventListener('blur', commitEdit);
 									node.style.cursor = 'text';
-									node.setAttribute('data-scada-value-editor', 'true');
+									node.setAttribute('data-scada-input-value', 'true');
 									node.addEventListener('pointerdown', function(evt)
 									{
 										evt.stopPropagation();
@@ -509,12 +521,12 @@
 					{
 						window.setTimeout(function()
 						{
-							bindValueEditorHandlers(attempt + 1);
+							bindInputValueHandlers(attempt + 1);
 						}, 50);
 					}
 					else
 					{
-						updateStatus('Unable to initialize SCADA value editor controls', true);
+						updateStatus('Unable to initialize SCADA input value controls', true);
 					}
 				}
 			};
@@ -522,7 +534,7 @@
 			window.setTimeout(function()
 			{
 				bindButtonHandlers(0);
-				bindValueEditorHandlers(0);
+				bindInputValueHandlers(0);
 			}, 0);
 
 			var tagList = Object.keys(tags);
@@ -550,15 +562,15 @@
 					{
 						var widget = widgets[i];
 
-						if ((widget.type == 'display' || widget.type == 'valueEditor') &&
+						if ((widget.type == 'outputValue' || widget.type == 'inputValue') &&
 							Object.prototype.hasOwnProperty.call(result.values, widget.tag))
 						{
 							updateValue(widget, result.values[widget.tag]);
 						}
-						else if (widget.type == 'indicator' &&
+						else if (widget.type == 'booleanLed' &&
 							Object.prototype.hasOwnProperty.call(result.values, widget.tag))
 						{
-							updateIndicator(widget, result.values[widget.tag]);
+							updateBooleanLed(widget, result.values[widget.tag]);
 						}
 					}
 

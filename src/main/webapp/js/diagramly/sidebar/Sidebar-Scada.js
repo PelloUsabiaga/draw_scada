@@ -28,16 +28,16 @@
 		this.setCurrentSearchEntryLibrary('scada', 'scadaWidgets');
 		this.addPaletteFunctions('scadaWidgets', 'SCADA / Widgets', false,
 		[
-			createWidget('button', 'Write', 130, 50,
+			createWidget('button', 'Button', 130, 50,
 				'rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;',
 				{tag: 'process.temperature', writeValue: '20'}),
-			createWidget('display', 'Value', 150, 55,
+			createWidget('outputValue', 'Output value', 150, 55,
 				'rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;',
 				{tag: 'process.temperature', units: '', precision: '1'}),
-			createWidget('indicator', 'Status', 130, 50,
+			createWidget('booleanLed', 'Boolean LED', 130, 50,
 				'rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;',
 				{tag: 'process.running', onColor: '#85ee80', offColor: '#f09898'}),
-			createWidget('valueEditor', 'Setpoint', 150, 50,
+			createWidget('inputValue', 'Input value', 150, 50,
 				'rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;',
 				{tag: 'process.temperature', units: '', precision: '1'})
 		]);
