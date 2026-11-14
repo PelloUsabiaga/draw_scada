@@ -475,6 +475,7 @@ Format.prototype.immediateRefresh = function()
 		if (scadaType == 'button' || scadaType == 'outputValue' ||
 			scadaType == 'selectValue' ||
 			scadaType == 'booleanLed' || scadaType == 'booleanSwitch' ||
+			scadaType == 'booleanCheckbox' ||
 			scadaType == 'diagnostics' ||
 			scadaType == 'barGauge' || scadaType == 'slider' ||
 			scadaType == 'inputValue')
@@ -2365,6 +2366,13 @@ ScadaWidgetFormatPanel.prototype.init = function()
 			{key: 'offColor', label: 'OFF color', type: 'color', defaultColor: '#f5f5f5'}
 		];
 	}
+	else if (this.type == 'booleanCheckbox')
+	{
+		fields = [
+			{key: 'ariaLabel', label: 'Accessible label'},
+			{key: 'tag', label: 'Boolean variable/tag'}
+		];
+	}
 	else if (this.type == 'barGauge')
 	{
 		fields = [
@@ -2402,6 +2410,7 @@ ScadaWidgetFormatPanel.prototype.init = function()
 		(this.type == 'outputValue') ? 'Output value' :
 		(this.type == 'selectValue') ? 'Select value' :
 		(this.type == 'booleanSwitch') ? 'Switch' :
+		(this.type == 'booleanCheckbox') ? 'Checkbox' :
 		(this.type == 'diagnostics') ? 'Diagnostics' :
 		(this.type == 'barGauge') ? 'Bar gauge' :
 		(this.type == 'slider') ? 'Slider' :

@@ -321,6 +321,7 @@
 				if (type == 'button' || type == 'outputValue' ||
 					type == 'selectValue' ||
 					type == 'booleanLed' || type == 'booleanSwitch' ||
+					type == 'booleanCheckbox' ||
 					type == 'barGauge' || type == 'slider' ||
 					type == 'inputValue')
 				{
@@ -606,6 +607,35 @@
 						}
 					}
 
+					if (type == 'booleanCheckbox')
+					{
+						newWidget.accessibleLabel = graph.getAttributeForCell(cell,
+							'ariaLabel', newWidget.label || '');
+						var checkboxTickCell = null;
+
+						for (var childIndex = 0; childIndex < model.getChildCount(cell); childIndex++)
+						{
+							var child = model.getChildAt(cell, childIndex);
+
+							if (graph.getAttributeForCell(child, 'scadaCheckboxPart', null) == 'tick')
+							{
+								if (checkboxTickCell != null)
+								{
+									throw new Error('Checkbox "' + tag + '" has more than one tick shape');
+								}
+
+								checkboxTickCell = child;
+							}
+						}
+
+						if (checkboxTickCell == null)
+						{
+							throw new Error('Checkbox "' + tag + '" is missing its tick shape');
+						}
+
+						newWidget.checkboxTickCell = checkboxTickCell;
+					}
+
 					widgets.push(newWidget);
 				}
 			}
@@ -829,6 +859,88 @@
 				graph.setCellStyles(mxConstants.STYLE_FILLCOLOR, fillColor, [widget.cell]);
 			};
 
+			var toggleBooleanCheckbox = function(widget, evt)
+			{
+				evt.preventDefault();
+				evt.stopPropagation();
+
+				if (typeof widget.value != 'boolean' || widget.writePending)
+				{
+					return;
+				}
+
+				var previousValue = widget.value;
+				var nextValue = !previousValue;
+				widget.writePending = true;
+				updateBooleanCheckbox(widget, nextValue);
+
+				writeTag(widget, nextValue).then(function()
+				{
+					widget.writePending = false;
+					updateBooleanCheckbox(widget, nextValue);
+				}).catch(function(error)
+				{
+					widget.writePending = false;
+					updateBooleanCheckbox(widget, previousValue);
+					console.error(error);
+					updateStatus(error.message, true, false);
+				});
+			};
+
+			var bindBooleanCheckboxTick = function(widget)
+			{
+				var tickState = graph.view.getState(widget.checkboxTickCell);
+
+				if (tickState != null && tickState.shape != null && tickState.shape.node != null)
+				{
+					var tickNode = tickState.shape.node;
+					tickNode.style.cursor =
+						(typeof widget.value == 'boolean' && !widget.writePending) ?
+							'pointer' : 'not-allowed';
+
+					if (tickNode.getAttribute('data-scada-checkbox-tick') != 'true')
+					{
+						tickNode.setAttribute('data-scada-checkbox-tick', 'true');
+						tickNode.addEventListener('pointerdown', function(evt)
+						{
+							evt.stopPropagation();
+						});
+						tickNode.addEventListener('mousedown', function(evt)
+						{
+							evt.stopPropagation();
+						});
+						tickNode.addEventListener('click', function(evt)
+						{
+							toggleBooleanCheckbox(widget, evt);
+						});
+					}
+				}
+			};
+
+			var updateBooleanCheckbox = function(widget, value)
+			{
+				widget.value = value;
+				var isBoolean = value === true || value === false;
+				var checked = value === true;
+
+				if (model.isVisible(widget.checkboxTickCell) != checked)
+				{
+					model.setVisible(widget.checkboxTickCell, checked);
+				}
+
+				bindBooleanCheckboxTick(widget);
+
+				if (widget.checkboxNode != null)
+				{
+					var disabled = !isBoolean || !!widget.writePending;
+					widget.checkboxNode.setAttribute('aria-checked',
+						isBoolean ? String(value) : 'mixed');
+					widget.checkboxNode.setAttribute('aria-disabled', String(disabled));
+					widget.checkboxNode.style.cursor = disabled ? 'not-allowed' : 'pointer';
+					widget.checkboxNode.style.opacity = isBoolean ? '1' : '0.55';
+				}
+			};
+
 			var updateBooleanSwitch = function(widget, value)
 			{
 				widget.value = value;
@@ -899,6 +1011,94 @@
 					(value === false) ? widget.offColor : '#bdbdbd';
 				widget.switchKnob.style.transform = (value === true) ?
 					'translateX(30px)' : 'translateX(0)';
+			};
+
+			var bindBooleanCheckboxHandlers = function(attempt)
+			{
+				var pending = false;
+
+				for (var i = 0; i < widgets.length; i++)
+				{
+					if (widgets[i].type == 'booleanCheckbox')
+					{
+						var widget = widgets[i];
+						var state = graph.view.getState(widget.cell);
+
+						if (state != null && state.shape != null && state.shape.node != null)
+						{
+							var node = state.shape.node;
+
+							if (node.getAttribute('data-scada-boolean-checkbox') != 'true')
+							{
+								(function(widget, node)
+								{
+									widget.checkboxNode = node;
+									node.setAttribute('role', 'checkbox');
+									node.setAttribute('tabindex', '0');
+									node.setAttribute('aria-label',
+										widget.accessibleLabel || widget.tag);
+									node.setAttribute('data-scada-boolean-checkbox', 'true');
+
+									var stopPropagation = function(evt)
+									{
+										evt.stopPropagation();
+									};
+
+									node.addEventListener('pointerdown', stopPropagation);
+									node.addEventListener('mousedown', stopPropagation);
+									node.addEventListener('click', function(evt)
+									{
+										toggleBooleanCheckbox(widget, evt);
+									});
+									node.addEventListener('keydown', function(evt)
+									{
+										if (evt.key == 'Enter' || evt.key == ' ')
+										{
+											if (!evt.repeat)
+											{
+												toggleBooleanCheckbox(widget, evt);
+											}
+											else
+											{
+												evt.preventDefault();
+												evt.stopPropagation();
+											}
+										}
+									});
+									node.addEventListener('keyup', function(evt)
+									{
+										if (evt.key == 'Enter' || evt.key == ' ')
+										{
+											evt.preventDefault();
+											evt.stopPropagation();
+										}
+									});
+
+									updateBooleanCheckbox(widget, widget.value);
+								})(widget, node);
+							}
+						}
+						else
+						{
+							pending = true;
+						}
+					}
+				}
+
+				if (pending)
+				{
+					if (attempt < 40)
+					{
+						window.setTimeout(function()
+						{
+							bindBooleanCheckboxHandlers(attempt + 1);
+						}, 50);
+					}
+					else
+					{
+						updateStatus('Unable to initialize SCADA checkbox controls', true);
+					}
+				}
 			};
 
 			var bindBooleanSwitchHandlers = function(attempt)
@@ -1887,6 +2087,7 @@
 				bindButtonHandlers(0);
 				bindInputValueHandlers(0);
 				bindSelectValueHandlers(0);
+				bindBooleanCheckboxHandlers(0);
 				bindBooleanSwitchHandlers(0);
 				bindSliderHandlers(0);
 			}, 0);
@@ -1942,6 +2143,11 @@
 							Object.prototype.hasOwnProperty.call(result.values, widget.tag))
 						{
 							updateBooleanSwitch(widget, result.values[widget.tag]);
+						}
+						else if (widget.type == 'booleanCheckbox' && !widget.writePending &&
+							Object.prototype.hasOwnProperty.call(result.values, widget.tag))
+						{
+							updateBooleanCheckbox(widget, result.values[widget.tag]);
 						}
 					}
 

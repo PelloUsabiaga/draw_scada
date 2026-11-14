@@ -164,6 +164,32 @@
 
 				return this.createVertexTemplateFromCells([switchCell], 80, 44, 'Switch');
 			})),
+			this.addEntry('scada boolean checkbox', mxUtils.bind(this, function()
+			{
+				var xmlDoc = mxUtils.createXmlDocument();
+				var value = xmlDoc.createElement('object');
+				value.setAttribute('label', '');
+				value.setAttribute('scadaType', 'booleanCheckbox');
+				value.setAttribute('tag', 'process.running');
+				value.setAttribute('ariaLabel', 'process.running');
+
+				var checkbox = new mxCell(value, new mxGeometry(0, 0, 36, 36),
+					'shape=rect;container=1;collapsible=0;recursiveResize=1;' +
+					'fillColor=#ffffff;strokeColor=#666666;strokeWidth=2;html=1;' +
+					'whiteSpace=wrap;');
+				checkbox.vertex = true;
+
+				var tickValue = xmlDoc.createElement('object');
+				tickValue.setAttribute('label', '');
+				tickValue.setAttribute('scadaCheckboxPart', 'tick');
+				var tick = new mxCell(tickValue, new mxGeometry(6, 5, 24, 26),
+					'shape=mxgraph.basic.tick;fillColor=#2e7d32;strokeColor=#2e7d32;' +
+					'strokeWidth=1;noLabel=1;');
+				tick.vertex = true;
+				checkbox.insert(tick);
+
+				return this.createVertexTemplateFromCells([checkbox], 36, 36, 'Checkbox');
+			})),
 			this.addEntry('bar gauge process value measurement', mxUtils.bind(this, function()
 			{
 				var xmlDoc = mxUtils.createXmlDocument();
