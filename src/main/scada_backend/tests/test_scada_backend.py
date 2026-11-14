@@ -37,14 +37,14 @@ class ScadaBackendTests(unittest.TestCase):
     def test_unknown_connector_type_is_reported(self) -> None:
         config = {
             "data_connectors": [
-                {"id": "opc", "type": "opc_ua", "namespace_prefix": "plant", "variables": {}}
+                {"id": "mqtt", "type": "mqtt"}
             ]
         }
         with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8") as config_file:
             json.dump(config, config_file)
             config_file.flush()
 
-            with self.assertRaisesRegex(ConfigurationError, "only local is currently supported"):
+            with self.assertRaisesRegex(ConfigurationError, "local and opc_ua"):
                 load_configuration(Path(config_file.name))
 
     def test_http_metadata_read_and_typed_write(self) -> None:

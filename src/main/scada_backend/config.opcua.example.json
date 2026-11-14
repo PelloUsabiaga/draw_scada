@@ -1,0 +1,48 @@
+{
+  "server": {
+    "host": "127.0.0.1",
+    "port": 8765
+  },
+  "data_connectors": [
+    {
+      "id": "local",
+      "type": "local",
+      "namespace_prefix": "process",
+      "variables": {
+        "temperature": {
+          "type": "float",
+          "default": 20,
+          "unit": "°C",
+          "precision": 1,
+          "description": "Simulated process temperature"
+        },
+        "running": {
+          "type": "boolean",
+          "default": false,
+          "description": "Process running state"
+        },
+        "temperature_setpoint": {
+          "type": "float",
+          "default": 25,
+          "unit": "°C",
+          "precision": 1,
+          "description": "Temperature setpoint"
+        },
+        "status": {
+          "type": "string",
+          "default": "idle",
+          "description": "Process status text"
+        }
+      }
+    },
+    {
+      "id": "plant",
+      "type": "opc_ua",
+      "endpoint_url": "opc.tcp://127.0.0.1:4840/draw-scada/dummy/",
+      "namespace_prefix": "plant",
+      "root_node_id": "ns=2;s=Plant",
+      "timeout_seconds": 5
+    }
+  ],
+  "simulations": []
+}

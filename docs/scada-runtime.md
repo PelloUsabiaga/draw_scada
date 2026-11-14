@@ -96,9 +96,10 @@ For a ready-to-unpack package, choose **File → Export as → Export HMI Runtim
 the `js/` directory. Extract the files while preserving that layout, then
 serve them over HTTP(S). The backend is not included.
 
-For a local demo, run:
+Install the backend's Python dependencies, then run it:
 
 ```sh
+python3 -m pip install -r src/main/scada_backend/requirements.txt
 python3 src/main/scada_backend/scada_backend.py
 ```
 
@@ -160,9 +161,59 @@ Query `http://127.0.0.1:8765/api/variables` to retrieve the inventory:
 }
 ```
 
-Connector implementations follow a shared interface and registry; local
-variables are implemented now, while OPC UA and other protocols remain future
-connectors.
+OPC UA connectors use the `asyncua` package. The backend connects to the
+configured server at startup and browses scalar variables under the configured
+`root_node_id` (default: the OPC UA Objects folder, `i=85`). Tags are built from
+`namespace_prefix` and the variable's browse path, separated with dots.
+Boolean, integer, float/double, and string variables are supported; unsupported
+types are skipped and logged. OPC UA access-level metadata controls the
+variable's `writable` flag. HMI polling reads the current OPC UA value, and HMI
+writes are sent to the server immediately. The OPC UA client connection is
+shared and serialized across HTTP requests.
+
+Connector configuration:
+
+```json
+{
+  "id": "plant",
+  "type": "opc_ua",
+  "endpoint_url": "opc.tcp://127.0.0.1:4840/draw-scada/dummy/",
+  "namespace_prefix": "plant",
+  "root_node_id": "ns=2;s=Plant",
+  "timeout_seconds": 5
+}
+```
+
+`endpoint_url` and `namespace_prefix` are required. `root_node_id` is optional;
+set it to an object/folder node to restrict browsing to that subtree. The
+backend must be able to connect to the OPC UA server when it starts; connection
+or browse failures are reported and prevent startup. If a connection drops
+later, the HTTP API reports the failed operation and retries the connection on
+the next request.
+
+An unauthenticated, unencrypted test server and an example backend config are
+included:
+
+```sh
+# Terminal 1
+python3 src/main/scada_backend/dummy_opc_ua_server.py
+
+# Terminal 2
+python3 src/main/scada_backend/scada_backend.py \
+  --config src/main/scada_backend/config.opcua.example.json
+```
+
+The dummy server exposes writable `Temperature`, `Running`, and `BatchCount`
+variables and a read-only `Status` variable under `Plant`. The example config
+maps these to `plant.Temperature`, `plant.Running`, `plant.BatchCount`, and
+`plant.Status`. The original `config.json` remains local-only, so it can still
+be run without an OPC UA server.
+
+This initial OPC UA setup deliberately does not configure authentication or
+encryption. The dummy server binds to loopback by default and is for development
+only; do not expose it or the unauthenticated SCADA HTTP backend to a network or
+use either to control equipment. Configure server-side authentication,
+authorization, encryption, and process interlocks before any production use.
 
 Run the backend's tests from its directory with
 `python3 -m unittest discover -s tests -v`.
