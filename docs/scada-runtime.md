@@ -43,6 +43,11 @@ served with those files under its `js/` subdirectory. Build the viewer with
 and `src/main/webapp/js/scada-runtime.js` into that `js/` directory. Serve the
 page over HTTP(S); browsers generally block `fetch()` from `file://` pages.
 
+For a ready-to-unpack package, choose **File → Export as → Export HMI Runtime
+(.zip)**. The ZIP contains the generated HTML file and both runtime scripts in
+the `js/` directory. Extract the files while preserving that layout, then
+serve them over HTTP(S). The backend is not included.
+
 For a local demo, run `python3 scada_test_backend.py` from the repository root.
 It listens only on `127.0.0.1:8765`. The `process.temperature` value starts at
 20 and increases by 1 every second; the default SCADA button writes 20 to that

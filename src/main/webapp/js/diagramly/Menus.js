@@ -776,6 +776,86 @@
 				});
 			});
 		}));
+
+		editorUi.actions.put('exportScadaRuntime', new Action('Export HMI Runtime (.zip)', function()
+		{
+			var exportRuntimePackage = async function()
+			{
+				var scadaConfig = EditorUi.getScadaConfig(editorUi.fileNode);
+
+				if (!scadaConfig.enabled || !EditorUi.hasScadaWidgets(graph))
+				{
+					throw new Error('Enable the SCADA runtime and add at least one SCADA widget before exporting.');
+				}
+
+				if (typeof JSZip == 'undefined')
+				{
+					await new Promise(function(resolve, reject)
+					{
+						mxscript(window.DRAWIO_SERVER_URL + 'js/jszip/jszip.min.js', function()
+						{
+							if (typeof JSZip == 'undefined')
+							{
+								reject(new Error('Unable to load the ZIP library'));
+							}
+							else
+							{
+								resolve();
+							}
+						}, null, null, null, function(error)
+						{
+							reject(error || new Error('Unable to load the ZIP library'));
+						});
+					});
+				}
+
+				var basename = editorUi.getBaseFilename(false).split('/').join('_').split('\\').join('_');
+
+				if (basename.length == 0)
+				{
+					basename = 'hmi';
+				}
+
+				var html = editorUi.getHtml2(editorUi.getFileData(true), graph, basename);
+				var assetPaths = ['js/viewer-static.min.js', 'js/scada-runtime.js'];
+				var assetBase = new URL(window.DRAWIO_SERVER_URL, document.baseURI);
+				var assets = await Promise.all(assetPaths.map(async function(path)
+				{
+					var response = await fetch(new URL(path, assetBase));
+
+					if (!response.ok)
+					{
+						throw new Error('Unable to download ' + path + ' (' + response.status + ')');
+					}
+
+					return await response.arrayBuffer();
+				}));
+
+				var zip = new JSZip();
+				zip.file(basename + '.html', html);
+				zip.file(assetPaths[0], assets[0]);
+				zip.file(assetPaths[1], assets[1]);
+				var blob = await zip.generateAsync({type: 'blob'});
+				var downloadUrl = URL.createObjectURL(blob);
+				var link = document.createElement('a');
+				link.href = downloadUrl;
+				link.download = basename + '-runtime.zip';
+				link.style.display = 'none';
+				document.body.appendChild(link);
+				link.click();
+				link.parentNode.removeChild(link);
+				window.setTimeout(function()
+				{
+					URL.revokeObjectURL(downloadUrl);
+				}, 20000);
+			};
+
+			exportRuntimePackage().catch(function(error)
+			{
+				console.error(error);
+				editorUi.handleError(error);
+			});
+		}));
 		
 		editorUi.actions.put('exportPdf', new Action('formatPdf' + '...', function()
 		{
@@ -3475,7 +3555,14 @@
 				this.addMenuItems(menu, ['exportVsdx'], parent);
 			}
 
-			var exportItems = ['-', 'exportHtml', 'exportXml'];
+			var exportItems = ['-', 'exportHtml'];
+
+			if (EditorUi.hasScadaWidgets(graph))
+			{
+				exportItems.push('exportScadaRuntime');
+			}
+
+			exportItems.push('exportXml');
 
 			if (Editor.enableExportUrl)
 			{
